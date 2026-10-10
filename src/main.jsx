@@ -26,7 +26,7 @@ const STORAGE_KEY = 'english-flashcards-v1';
 const ACCOUNTS_KEY = 'english-flashcards-accounts-v1';
 const SESSION_KEY = 'english-flashcards-session-v1';
 const REMEMBER_KEY = 'english-flashcards-remember-v1';
-const CAMBRIDGE_BASE_URL = 'https://dictionary.cambridge.org';
+const CAMBRIDGE_BASE_URL = '/cambridge';
 const POLLINATIONS_OPENAI_URL = 'https://text.pollinations.ai/openai';
 const cambridgeAudioCache = new Map();
 const cambridgeEntryCache = new Map();
@@ -742,6 +742,8 @@ function mediaPathFor(word, region) {
 
 function generatedCambridgeCandidates(term, locale) {
   const region = locale === 'en-GB' ? 'uk' : 'us';
+  if (region === 'uk') return [];
+
   const words = term
     .toLowerCase()
     .split(/\s+/)
@@ -776,21 +778,28 @@ function playAudioUrl(url) {
 
     const audio = new Audio(url);
     activeAudio = audio;
+    let settled = false;
     audio.preload = 'auto';
 
     const rejectIfCurrent = () => {
+      if (settled) return;
+      settled = true;
       if (activeAudio === audio) activeAudio = null;
       reject(new Error('Audio failed'));
+    };
+    const resolveIfCurrent = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
     };
 
     audio.addEventListener('ended', () => {
       if (activeAudio === audio) activeAudio = null;
     });
     audio.addEventListener('error', rejectIfCurrent, { once: true });
-    audio
-      .play()
-      .then(resolve)
-      .catch(rejectIfCurrent);
+    audio.addEventListener('playing', resolveIfCurrent, { once: true });
+    audio.addEventListener('canplaythrough', resolveIfCurrent, { once: true });
+    audio.play().catch(rejectIfCurrent);
   });
 }
 
@@ -1165,9 +1174,6 @@ function App() {
     const conversations =
       activeCard?.conversations ||
       conversationExamples(activeCard?.term || '', activeCard?.type || 'noun', activeCard?.userExample || '');
-    const usIpa = entryInfo?.ipa?.us;
-    const ukIpa = entryInfo?.ipa?.uk;
-
     return (
       <section className={`flashcard ${isChanging ? 'leaving' : 'entering'}`} aria-live="polite">
         {activeCard ? (
@@ -1181,10 +1187,6 @@ function App() {
 
                   <div className="card-main front-main">
                     <p className="term">{activeCard.term}</p>
-                    <div className="ipa-row">
-                      <span>US {usIpa || '...'}</span>
-                      <span>UK {ukIpa || '...'}</span>
-                    </div>
                     {renderPronunciationButtons(activeCard)}
                   </div>
                 </div>

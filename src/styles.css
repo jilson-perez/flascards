@@ -783,23 +783,6 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.ipa-row {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: #52665e;
-  font-size: clamp(0.9rem, 2vw, 1.05rem);
-  font-weight: 850;
-}
-
-.ipa-row span {
-  border: 1px solid rgba(23, 32, 28, 0.09);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 7px 11px;
-}
-
 .flip-button {
   align-self: center;
   display: inline-flex;
@@ -1170,11 +1153,6 @@ h1 {
   .term {
     font-size: clamp(2.35rem, 15vw, 4.5rem);
     overflow-wrap: anywhere;
-  }
-
-  .ipa-row {
-    font-size: 0.82rem;
-    flex-wrap: wrap;
   }
 
   .mode-switch {
