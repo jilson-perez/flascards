@@ -6,19 +6,28 @@ import {
   CheckCircle2,
   Database,
   FlipHorizontal2,
+  Info,
   Layers3,
+  LogOut,
+  Mail,
   Plus,
   RotateCcw,
   Settings2,
   Shuffle,
   Sparkles,
   Trash2,
+  UserRound,
   Volume2,
+  X,
 } from 'lucide-react';
 import './styles.css';
 
 const STORAGE_KEY = 'english-flashcards-v1';
+const ACCOUNTS_KEY = 'english-flashcards-accounts-v1';
+const SESSION_KEY = 'english-flashcards-session-v1';
+const REMEMBER_KEY = 'english-flashcards-remember-v1';
 const CAMBRIDGE_BASE_URL = 'https://dictionary.cambridge.org';
+const POLLINATIONS_OPENAI_URL = 'https://text.pollinations.ai/openai';
 const cambridgeAudioCache = new Map();
 const cambridgeEntryCache = new Map();
 let activeAudio = null;
@@ -349,17 +358,185 @@ function buildCard(term, userExample = '') {
   };
 }
 
-function loadCards() {
+function parseAiJson(text) {
+  const clean = text
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  const firstBrace = clean.indexOf('{');
+  const lastBrace = clean.lastIndexOf('}');
+  const jsonText = firstBrace >= 0 && lastBrace >= 0 ? clean.slice(firstBrace, lastBrace + 1) : clean;
+  return JSON.parse(jsonText);
+}
+
+async function generateAiCardData(term, userExample, type) {
+  const prompt = `
+You are helping a Spanish-speaking learner study English vocabulary.
+Create realistic English-only study content for this vocabulary card.
+
+Vocabulary: "${term}"
+Type: "${TYPE_LABELS[type]}"
+Learner example/context: "${userExample}"
+
+Rules:
+- Do not write meta sentences like "I learn the word water".
+- Use the vocabulary naturally in real situations.
+- Keep the meaning clear and short.
+- Make examples natural and useful.
+- Make 2 conversations, each exactly 4 lines, with speakers Max and Kity.
+- Each conversation must use "${term}" naturally in a realistic scenario.
+- Return ONLY valid JSON with this shape:
+{
+  "meaning": "short English meaning",
+  "examples": ["example 1", "example 2"],
+  "conversations": [
+    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}],
+    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}]
+  ]
+}
+`;
+
+  const response = await fetch(POLLINATIONS_OPENAI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [
+        {
+          role: 'system',
+          content: 'Return only valid JSON. Do not wrap the JSON in markdown.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+  });
+  if (!response.ok) throw new Error(`AI generation failed: ${response.status}`);
+
+  const payload = await response.json();
+  const text = payload?.choices?.[0]?.message?.content || '';
+  const data = parseAiJson(text);
+
+  if (!data.meaning || !Array.isArray(data.examples) || !Array.isArray(data.conversations)) {
+    throw new Error('AI generation returned an invalid card shape');
+  }
+
+  return {
+    meaning: String(data.meaning).trim(),
+    examples: data.examples.slice(0, 2).map((example) => String(example).trim()).filter(Boolean),
+    conversations: data.conversations.slice(0, 2).map((conversation) =>
+      conversation.slice(0, 4).map((line, index) => ({
+        speaker: line.speaker === 'Kity' || index % 2 === 1 ? 'Kity' : 'Max',
+        line: String(line.line || '').trim(),
+      })),
+    ),
+  };
+}
+
+function cloneStarterDeck() {
+  return starterCards.map((card) => ({ ...card, id: crypto.randomUUID(), nextReviewAt: Date.now() }));
+}
+
+function accountDeckKey(email) {
+  return `${STORAGE_KEY}:${email.toLowerCase()}`;
+}
+
+function loadAccounts() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return Array.isArray(saved) && saved.length ? saved : starterCards;
+    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {};
   } catch {
-    return starterCards;
+    return {};
   }
 }
 
-function saveCards(cards) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+function saveAccounts(accounts) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function loadRememberedAuth() {
+  try {
+    return JSON.parse(localStorage.getItem(REMEMBER_KEY)) || { email: '', password: '', remember: true };
+  } catch {
+    return { email: '', password: '', remember: true };
+  }
+}
+
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(account, remember) {
+  if (remember) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(account));
+    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email: account.email, password: account.password, remember }));
+    return;
+  }
+
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(account));
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email: account.email, password: '', remember }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function activeSession() {
+  return loadSession() || JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || 'API request failed');
+  return payload;
+}
+
+function isApiUnavailable(error) {
+  const message = String(error?.message || '');
+  return message.includes('Failed to fetch') || message.includes('API request failed');
+}
+
+function loadCards(email) {
+  if (!email) return [];
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(accountDeckKey(email)));
+    return Array.isArray(saved) && saved.length ? saved : cloneStarterDeck();
+  } catch {
+    return cloneStarterDeck();
+  }
+}
+
+function saveCards(cards, email) {
+  if (!email) return;
+  localStorage.setItem(accountDeckKey(email), JSON.stringify(cards));
+}
+
+async function loadCardsFromApi(email) {
+  const payload = await apiRequest(`/api/deck/${encodeURIComponent(email)}`);
+  return Array.isArray(payload.cards) && payload.cards.length ? payload.cards : cloneStarterDeck();
+}
+
+async function saveCardsToApi(cards, email) {
+  await apiRequest(`/api/deck/${encodeURIComponent(email)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ cards }),
+  });
 }
 
 function weightedPick(cards) {
@@ -560,15 +737,29 @@ function speak(text, locale = 'en-US') {
 }
 
 function App() {
-  const [cards, setCards] = useState(loadCards);
+  const rememberedAuth = loadRememberedAuth();
+  const [auth, setAuth] = useState(activeSession);
+  const [authMode, setAuthMode] = useState('login');
+  const [authError, setAuthError] = useState('');
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    lastName: '',
+    email: rememberedAuth.email || '',
+    password: rememberedAuth.password || '',
+    remember: rememberedAuth.remember !== false,
+  });
+  const [cards, setCards] = useState(() => loadCards(activeSession()?.email));
   const [term, setTerm] = useState('');
   const [example, setExample] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [deckReady, setDeckReady] = useState(Boolean(activeSession()?.email));
   const [activeId, setActiveId] = useState(null);
   const [isChanging, setIsChanging] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
   const [viewMode, setViewMode] = useState('home');
   const [isFlipped, setIsFlipped] = useState(false);
   const [entryInfo, setEntryInfo] = useState(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const groupedCards = useMemo(() => {
     return cards.reduce((groups, card) => {
@@ -597,8 +788,38 @@ function App() {
   }, [cards]);
 
   useEffect(() => {
-    saveCards(cards);
-  }, [cards]);
+    if (!deckReady) return;
+    saveCards(cards, auth?.email);
+    if (!auth?.email) return;
+    saveCardsToApi(cards, auth.email).catch(() => {});
+  }, [cards, auth?.email, deckReady]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setDeckReady(false);
+    const localCards = loadCards(auth?.email);
+    setCards(localCards);
+    setActiveId(null);
+    setSelectedType('all');
+    setViewMode('home');
+
+    if (auth?.email) {
+      loadCardsFromApi(auth.email)
+        .then((remoteCards) => {
+          if (isCurrent) setCards(remoteCards);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (isCurrent) setDeckReady(true);
+        });
+    } else {
+      setDeckReady(true);
+    }
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [auth?.email]);
 
   useEffect(() => {
     if (activeCard && activeCard.id !== activeId) setActiveId(activeCard.id);
@@ -623,11 +844,98 @@ function App() {
     };
   }, [activeCard?.id, activeCard?.term]);
 
-  function addCard(event) {
+  function updateAuthForm(field, value) {
+    setAuthForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    setAuthError('');
+
+    const email = authForm.email.trim().toLowerCase();
+    const password = authForm.password.trim();
+    const accounts = loadAccounts();
+
+    if (!email || !password) {
+      setAuthError('Email and password are required.');
+      return;
+    }
+
+    if (authMode === 'register') {
+      if (!authForm.name.trim() || !authForm.lastName.trim()) {
+        setAuthError('Name and last name are required.');
+        return;
+      }
+
+      if (accounts[email]) {
+        setAuthError('This email already has an account. Try logging in.');
+        setAuthMode('login');
+        return;
+      }
+
+      const account = {
+        name: authForm.name.trim(),
+        lastName: authForm.lastName.trim(),
+        email,
+        password,
+        createdAt: Date.now(),
+      };
+
+      try {
+        await apiRequest('/api/register', {
+          method: 'POST',
+          body: JSON.stringify(account),
+        });
+      } catch (error) {
+        if (!isApiUnavailable(error)) {
+          setAuthError(error.message);
+          return;
+        }
+      }
+
+      saveAccounts({ ...accounts, [email]: account });
+      saveSession(account, authForm.remember);
+      setAuth(account);
+      return;
+    }
+
+    let account = accounts[email];
+
+    try {
+      const payload = await apiRequest('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      account = { ...payload.account, password };
+    } catch (error) {
+      if (!isApiUnavailable(error)) {
+        setAuthError(error.message);
+        return;
+      }
+
+      if (!account || account.password !== password) {
+        setAuthError('Email or password is incorrect.');
+        return;
+      }
+    }
+
+    saveAccounts({ ...accounts, [email]: account });
+    saveSession(account, authForm.remember);
+    setAuth(account);
+  }
+
+  function logout() {
+    clearSession();
+    setAuth(null);
+    setCards([]);
+    setViewMode('home');
+  }
+
+  async function addCard(event) {
     event.preventDefault();
     const normalized = normalizeTerm(term);
     const normalizedExample = normalizeTerm(example);
-    if (!normalized || !normalizedExample) return;
+    if (!normalized || !normalizedExample || isGenerating) return;
 
     const exists = cards.some((card) => card.term.toLowerCase() === normalized.toLowerCase());
     if (exists) {
@@ -637,10 +945,23 @@ function App() {
     }
 
     const nextCard = buildCard(normalized, normalizedExample);
+    setIsGenerating(true);
+
+    try {
+      const aiData = await generateAiCardData(nextCard.term, normalizedExample, nextCard.type);
+      nextCard.meaning = aiData.meaning || nextCard.meaning;
+      nextCard.examples = aiData.examples.length ? aiData.examples : nextCard.examples;
+      nextCard.conversations = aiData.conversations.length ? aiData.conversations : nextCard.conversations;
+      nextCard.aiGenerated = true;
+    } catch {
+      nextCard.aiGenerated = false;
+    }
+
     setCards((current) => [nextCard, ...current]);
     setActiveId(nextCard.id);
     setTerm('');
     setExample('');
+    setIsGenerating(false);
     window.setTimeout(() => speakWithCambridge(nextCard.term, 'en-US'), 150);
   }
 
@@ -684,7 +1005,7 @@ function App() {
   }
 
   function resetDeck() {
-    setCards(starterCards.map((card) => ({ ...card, id: crypto.randomUUID(), nextReviewAt: Date.now() })));
+    setCards(cloneStarterDeck());
     setSelectedType('all');
     setActiveId(null);
   }
@@ -864,6 +1185,87 @@ function App() {
     );
   }
 
+  function renderAuth() {
+    return (
+      <main className="auth-shell">
+        <section className="auth-panel">
+          <div className="auth-copy">
+            <p className="eyebrow">English study deck</p>
+            <h1>Your vocabulary, one account</h1>
+            <p>
+              Create a simple profile so your deck is separated by email. Real cross-device sync is ready for a backend or cloud adapter.
+            </p>
+          </div>
+
+          <form className="auth-form" onSubmit={submitAuth}>
+            <div className="auth-tabs" role="tablist" aria-label="Account mode">
+              <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
+                Log in
+              </button>
+              <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>
+                Register
+              </button>
+            </div>
+
+            {authMode === 'register' && (
+              <div className="auth-grid">
+                <label>
+                  Name
+                  <input value={authForm.name} onChange={(event) => updateAuthForm('name', event.target.value)} autoComplete="given-name" />
+                </label>
+                <label>
+                  Last name
+                  <input value={authForm.lastName} onChange={(event) => updateAuthForm('lastName', event.target.value)} autoComplete="family-name" />
+                </label>
+              </div>
+            )}
+
+            <label>
+              Email
+              <div className="auth-input">
+                <Mail size={18} />
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={(event) => updateAuthForm('email', event.target.value)}
+                  autoComplete="email"
+                />
+              </div>
+            </label>
+
+            <label>
+              Password
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(event) => updateAuthForm('password', event.target.value)}
+                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+              />
+            </label>
+
+            <label className="remember-row">
+              <input
+                type="checkbox"
+                checked={authForm.remember}
+                onChange={(event) => updateAuthForm('remember', event.target.checked)}
+              />
+              Remember my password on this device
+            </label>
+
+            {authError && <p className="auth-error">{authError}</p>}
+
+            <button className="auth-submit" type="submit">
+              <UserRound size={18} />
+              {authMode === 'register' ? 'Create account' : 'Enter app'}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  if (!auth) return renderAuth();
+
   return (
     <main className={`app-shell ${viewMode === 'study' ? 'study-only' : ''} ${viewMode === 'home' ? 'home-mode' : 'admin-mode'}`}>
       <nav className="mode-switch" aria-label="App mode">
@@ -879,7 +1281,16 @@ function App() {
           <Settings2 size={17} />
           Admin
         </button>
+        <button onClick={logout} title="Log out">
+          <LogOut size={17} />
+          Exit
+        </button>
       </nav>
+
+      <button className="about-fab" type="button" onClick={() => setAboutOpen(true)} title="About">
+        <Info size={17} />
+        <span>About</span>
+      </button>
 
       {viewMode === 'home' ? (
         renderHome()
@@ -923,9 +1334,9 @@ function App() {
             </label>
           </div>
           <div className="input-row add-submit-row">
-            <button type="submit">
+            <button type="submit" disabled={isGenerating}>
               <Plus size={19} />
-              Build card
+              {isGenerating ? 'Generating...' : 'Build card'}
             </button>
           </div>
         </form>
@@ -1007,6 +1418,20 @@ function App() {
         </button>
       </aside>
         </>
+      )}
+
+      {aboutOpen && (
+        <div className="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
+          <section className="about-card">
+            <button className="about-close" type="button" onClick={() => setAboutOpen(false)} aria-label="Close About">
+              <X size={17} />
+            </button>
+            <p className="about-kicker">About</p>
+            <h2 id="about-title">Ing. Jilson Pérez</h2>
+            <strong>Software Developer</strong>
+            <p>Ecuador - Quito</p>
+          </section>
+        </div>
       )}
     </main>
   );
