@@ -611,9 +611,9 @@ function loadCards(email) {
 
   try {
     const saved = JSON.parse(localStorage.getItem(accountDeckKey(email)));
-    return Array.isArray(saved) && saved.length ? saved : cloneStarterDeck();
+    return Array.isArray(saved) ? saved : [];
   } catch {
-    return cloneStarterDeck();
+    return [];
   }
 }
 
@@ -624,7 +624,7 @@ function saveCards(cards, email) {
 
 async function loadCardsFromApi(email) {
   const payload = await apiRequest(`/api/deck/${encodeURIComponent(email)}`);
-  return Array.isArray(payload.cards) && payload.cards.length ? payload.cards : cloneStarterDeck();
+  return Array.isArray(payload.cards) ? payload.cards : [];
 }
 
 async function saveCardsToApi(cards, email) {
@@ -843,11 +843,11 @@ function App() {
     password: rememberedAuth.password || '',
     remember: rememberedAuth.remember !== false,
   });
-  const [cards, setCards] = useState(() => loadCards(activeSession()?.email));
+  const [cards, setCards] = useState([]);
   const [term, setTerm] = useState('');
   const [example, setExample] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [deckReady, setDeckReady] = useState(Boolean(activeSession()?.email));
+  const [deckReady, setDeckReady] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [isChanging, setIsChanging] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
@@ -903,7 +903,9 @@ function App() {
         .then((remoteCards) => {
           if (isCurrent) setCards(remoteCards);
         })
-        .catch(() => {})
+        .catch(() => {
+          if (isCurrent) setCards(localCards);
+        })
         .finally(() => {
           if (isCurrent) setDeckReady(true);
         });
