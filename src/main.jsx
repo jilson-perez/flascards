@@ -255,14 +255,32 @@ function examplesFor(term, type, userExample = '') {
 function meaningFor(term, type, userExample = '') {
   const lower = term.toLowerCase();
   const cleanExample = normalizeTerm(userExample);
-  const context = cleanExample ? ` In your example, it appears in this context: "${cleanExample}"` : '';
+  const context = cleanExample ? ` In your example, "${cleanExample}", it is used in this specific situation.` : '';
 
-  if (type === 'phrasalVerb') return `To ${lower} means to discover, understand, solve, or complete something depending on the context.${context}`;
-  if (type === 'verb') return `To ${lower} means to perform this action in a real situation.${context}`;
-  if (type === 'adjective') return `${titleCase(term)} describes the quality, condition, or feeling of a person, thing, or situation.${context}`;
-  if (type === 'adverb') return `${titleCase(term)} explains how an action happens.${context}`;
-  if (type === 'expression') return `${titleCase(term)} is an expression used as a complete idea in conversation.${context}`;
-  return `${titleCase(term)} is a noun used to name a person, thing, idea, event, or situation.${context}`;
+  if (lower === 'deadline') {
+    return `A deadline is the time or date by which something must be finished or submitted. You often meet a deadline, miss a deadline, or work under a tight deadline.${context}`;
+  }
+
+  if (lower === 'straightforward') {
+    return `Straightforward means clear, simple, and easy to understand or do, without unnecessary difficulty. It is often used for instructions, processes, explanations, or tasks.${context}`;
+  }
+
+  if (type === 'phrasalVerb') {
+    return `To ${lower} means to do the action expressed by this phrasal verb in context. The meaning can change depending on the situation, so focus on the full sentence and what is happening.${context}`;
+  }
+  if (type === 'verb') {
+    return `To ${lower} means to perform this action in a real situation. Pay attention to who does the action, what receives the action, and why it happens.${context}`;
+  }
+  if (type === 'adjective') {
+    return `${titleCase(term)} describes a quality or condition of a person, thing, process, or situation. It tells you what that thing is like in context.${context}`;
+  }
+  if (type === 'adverb') {
+    return `${titleCase(term)} explains how an action happens. It usually gives more detail about the manner, speed, attitude, or degree of an action.${context}`;
+  }
+  if (type === 'expression') {
+    return `${titleCase(term)} is an expression used to communicate a complete idea naturally in conversation. Its exact meaning depends on the situation around it.${context}`;
+  }
+  return `${titleCase(term)} is used to talk about a specific thing, idea, event, or situation. In real English, notice the verbs and adjectives that commonly appear with it.${context}`;
 }
 
 function conversationExamples(term, type, userExample = '') {
@@ -419,6 +437,10 @@ function hasMetaConversation(conversations) {
   );
 }
 
+function isWeakMeaning(meaning) {
+  return /noun used to name|verb means to perform this action|describes the quality|used as a complete idea/i.test(meaning);
+}
+
 async function generateAiCardData(term, userExample, type) {
   const prompt = `
 You are helping a Spanish-speaking learner study English vocabulary.
@@ -429,6 +451,11 @@ Type: "${TYPE_LABELS[type]}"
 Learner example/context: "${userExample}"
 
 Rules:
+- The meaning must be educational and context-aware, similar to a learner dictionary.
+- The meaning must explain what "${term}" means in the learner's example/context.
+- Include common usage patterns or collocations when useful, such as "meet a deadline", "miss a deadline", "tight deadline".
+- Do not give generic grammar-only meanings like "a noun used to name a person, thing, idea, event, or situation".
+- Do not simply repeat the learner example as the meaning.
 - Do not write meta sentences like "I learn the word water".
 - Do not mention studying, practicing, vocabulary, cards, examples, or "the word".
 - Use the vocabulary naturally in real situations.
@@ -445,7 +472,7 @@ Rules:
   Kity: Not really. It’s pretty straightforward once you know where everything is.
 - Return ONLY valid JSON with this shape:
 {
-  "meaning": "short English meaning",
+  "meaning": "learner-dictionary style meaning with a short usage note",
   "examples": ["example 1", "example 2"],
   "conversations": [
     [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}],
@@ -494,6 +521,10 @@ Rules:
 
   if (hasMetaConversation(normalized.conversations)) {
     throw new Error('AI generated meta conversation instead of real dialogue');
+  }
+
+  if (isWeakMeaning(normalized.meaning)) {
+    normalized.meaning = meaningFor(term, type, userExample);
   }
 
   return normalized;
