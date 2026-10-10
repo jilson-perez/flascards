@@ -268,20 +268,29 @@ function meaningFor(term, type, userExample = '') {
 function conversationExamples(term, type, userExample = '') {
   const word = term.toLowerCase();
   const cleanExample = normalizeTerm(userExample);
+  const scenario = cleanExample || `We need to use ${word} in a normal situation.`;
 
   if (cleanExample) {
     return [
       [
-        { speaker: 'Max', line: `I found this example: "${cleanExample}"` },
-        { speaker: 'Kity', line: `Nice. The key word is "${word}", so listen to how it works in that sentence.` },
-        { speaker: 'Max', line: `So I should practice "${word}" inside a full idea, not alone.` },
-        { speaker: 'Kity', line: 'Exactly. Context makes the word easier to remember and use.' },
+        { speaker: 'Max', line: 'Have you tried the new software yet?' },
+        { speaker: 'Kity', line: `Yes, I used it this morning. It was pretty ${word}.` },
+        { speaker: 'Max', line: 'Really? I thought creating the report would be confusing.' },
+        { speaker: 'Kity', line: 'Not at all. You choose a date range and click Generate.' },
+        { speaker: 'Max', line: 'That sounds easier than I expected.' },
+        { speaker: 'Kity', line: `Exactly. The process is ${word} once you know where everything is.` },
+        { speaker: 'Max', line: 'Could you show me after lunch?' },
+        { speaker: 'Kity', line: 'Sure. It will only take a few minutes.' },
       ],
       [
-        { speaker: 'Max', line: `Can I use "${word}" in a real conversation today?` },
-        { speaker: 'Kity', line: `Yes. Start from your example and change one detail at a time.` },
-        { speaker: 'Max', line: `Then "${word}" becomes flexible, not just memorized.` },
-        { speaker: 'Kity', line: 'That is the goal: understand it, hear it, and use it naturally.' },
+        { speaker: 'Max', line: `I read this sentence earlier: "${scenario}"` },
+        { speaker: 'Kity', line: 'That makes sense in a work conversation.' },
+        { speaker: 'Max', line: `Could I say the instructions are ${word}?` },
+        { speaker: 'Kity', line: 'Yes, especially if they are clear and easy to follow.' },
+        { speaker: 'Max', line: 'Good. I want to use it when I explain the app to Daniel.' },
+        { speaker: 'Kity', line: `Then say, "The setup is ${word}, so you can finish it quickly."` },
+        { speaker: 'Max', line: 'Perfect. That sounds natural.' },
+        { speaker: 'Kity', line: 'It does. Use it when something feels simple and direct.' },
       ],
     ];
   }
@@ -293,12 +302,20 @@ function conversationExamples(term, type, userExample = '') {
         { speaker: 'Kity', line: 'Start with the numbers from yesterday and compare them one by one.' },
         { speaker: 'Max', line: `Good idea. If I ${word} the mistake today, we can send the final version.` },
         { speaker: 'Kity', line: 'Exactly. Then the meeting tomorrow will be much easier.' },
+        { speaker: 'Max', line: 'I will check the sales tab first.' },
+        { speaker: 'Kity', line: 'And I will review the formulas in the summary.' },
+        { speaker: 'Max', line: `Great. We should ${word} the issue before lunch.` },
+        { speaker: 'Kity', line: 'Then we can focus on the presentation.' },
       ],
       [
         { speaker: 'Max', line: `Did you ${word} how to use the new app?` },
         { speaker: 'Kity', line: 'Yes, but it took me a few minutes to understand the settings.' },
         { speaker: 'Max', line: `I am still trying to ${word} the pronunciation tool.` },
         { speaker: 'Kity', line: 'Click the audio button first, then repeat the sentence out loud.' },
+        { speaker: 'Max', line: 'Oh, now I see the US and UK options.' },
+        { speaker: 'Kity', line: 'Exactly. Try both and notice the difference.' },
+        { speaker: 'Max', line: `Nice, I finally ${word} how it works.` },
+        { speaker: 'Kity', line: 'Good. Now use it with your next card.' },
       ],
     ];
   }
@@ -310,28 +327,44 @@ function conversationExamples(term, type, userExample = '') {
         { speaker: 'Kity', line: 'Do the most important part first and leave the small details for later.' },
         { speaker: 'Max', line: `If I ${word} it now, I will have more time to practice English tonight.` },
         { speaker: 'Kity', line: 'That sounds like a solid plan.' },
+        { speaker: 'Max', line: 'Can you review it when I finish?' },
+        { speaker: 'Kity', line: 'Sure, send it to me before the meeting.' },
+        { speaker: 'Max', line: `Thanks. I will ${word} the final version after your comments.` },
+        { speaker: 'Kity', line: 'Perfect. Then we can send it to the team.' },
       ],
       [
         { speaker: 'Max', line: `Can you show me how to ${word} this naturally in a sentence?` },
         { speaker: 'Kity', line: 'Sure. Think about a normal situation from your day.' },
         { speaker: 'Max', line: `Okay, I will ${word} it with an example from work.` },
         { speaker: 'Kity', line: 'Perfect. Real context makes it easier to remember.' },
+        { speaker: 'Max', line: 'What if I use it in a meeting?' },
+        { speaker: 'Kity', line: 'That works. Keep the sentence short and clear.' },
+        { speaker: 'Max', line: `Great, I will ${word} it when I explain the task.` },
+        { speaker: 'Kity', line: 'That will sound natural.' },
       ],
     ];
   }
 
   return [
     [
-      { speaker: 'Max', line: `I heard "${word}" in a meeting today, but I was not sure how to use it.` },
-      { speaker: 'Kity', line: 'Try connecting it to a situation you already understand.' },
-      { speaker: 'Max', line: `So I can say "${word}" when I talk about this kind of situation?` },
-      { speaker: 'Kity', line: 'Yes. Say the full sentence a few times so it feels natural.' },
+      { speaker: 'Max', line: 'Have you tried the new software yet?' },
+      { speaker: 'Kity', line: `Yes, I used it this morning. It is pretty ${word}.` },
+      { speaker: 'Max', line: 'Was it difficult? I am still getting used to it.' },
+      { speaker: 'Kity', line: 'Not really. Everything is easy to find.' },
+      { speaker: 'Max', line: 'Could you show me how to create a report?' },
+      { speaker: 'Kity', line: 'Sure. Choose a date range, then click Generate.' },
+      { speaker: 'Max', line: `Oh, that is more ${word} than I expected.` },
+      { speaker: 'Kity', line: 'Exactly. You will get the hang of it quickly.' },
     ],
     [
-      { speaker: 'Max', line: `I want "${word}" to become part of my active vocabulary.` },
-      { speaker: 'Kity', line: 'Then use it in a short message or conversation today.' },
-      { speaker: 'Max', line: `I will write two sentences with "${word}" after this card.` },
-      { speaker: 'Kity', line: 'Nice. That is how passive words become usable words.' },
+      { speaker: 'Max', line: 'Do you think the client will understand the proposal?' },
+      { speaker: 'Kity', line: `Yes. The design is ${word}, and the steps are clear.` },
+      { speaker: 'Max', line: 'Good. I do not want them to feel lost during the demo.' },
+      { speaker: 'Kity', line: 'Start with the problem, then show the solution.' },
+      { speaker: 'Max', line: 'Should I skip the technical details?' },
+      { speaker: 'Kity', line: `Mention them briefly, but keep the explanation ${word}.` },
+      { speaker: 'Max', line: 'That makes sense.' },
+      { speaker: 'Kity', line: 'They will ask for details if they need them.' },
     ],
   ];
 }
@@ -369,6 +402,23 @@ function parseAiJson(text) {
   return JSON.parse(jsonText);
 }
 
+function hasMetaConversation(conversations) {
+  const blockedPatterns = [
+    /\b(the )?word\b/i,
+    /\bvocabulary\b/i,
+    /\bflashcard\b/i,
+    /\bcard\b/i,
+    /\bpractice\b/i,
+    /\blearn(ing)?\b/i,
+    /\bexample\b/i,
+    /\bstudy\b/i,
+  ];
+
+  return conversations.some((conversation) =>
+    conversation.some((line) => blockedPatterns.some((pattern) => pattern.test(line.line || ''))),
+  );
+}
+
 async function generateAiCardData(term, userExample, type) {
   const prompt = `
 You are helping a Spanish-speaking learner study English vocabulary.
@@ -380,11 +430,19 @@ Learner example/context: "${userExample}"
 
 Rules:
 - Do not write meta sentences like "I learn the word water".
+- Do not mention studying, practicing, vocabulary, cards, examples, or "the word".
 - Use the vocabulary naturally in real situations.
+- The conversation must be a realistic scene, not an explanation about language learning.
+- The vocabulary must appear naturally in the dialogue at least twice.
 - Keep the meaning clear and short.
 - Make examples natural and useful.
-- Make 2 conversations, each exactly 4 lines, with speakers Max and Kity.
+- Make 2 conversations, each exactly 8 lines, with speakers Max and Kity.
 - Each conversation must use "${term}" naturally in a realistic scenario.
+- Good style example:
+  Max: Have you tried the new software yet?
+  Kity: Yes, I used it this morning to create a report.
+  Max: Was it difficult? I’m still getting used to it.
+  Kity: Not really. It’s pretty straightforward once you know where everything is.
 - Return ONLY valid JSON with this shape:
 {
   "meaning": "short English meaning",
@@ -423,16 +481,22 @@ Rules:
     throw new Error('AI generation returned an invalid card shape');
   }
 
-  return {
+  const normalized = {
     meaning: String(data.meaning).trim(),
     examples: data.examples.slice(0, 2).map((example) => String(example).trim()).filter(Boolean),
     conversations: data.conversations.slice(0, 2).map((conversation) =>
-      conversation.slice(0, 4).map((line, index) => ({
+      conversation.slice(0, 8).map((line, index) => ({
         speaker: line.speaker === 'Kity' || index % 2 === 1 ? 'Kity' : 'Max',
         line: String(line.line || '').trim(),
       })),
     ),
   };
+
+  if (hasMetaConversation(normalized.conversations)) {
+    throw new Error('AI generated meta conversation instead of real dialogue');
+  }
+
+  return normalized;
 }
 
 function cloneStarterDeck() {
@@ -965,6 +1029,40 @@ function App() {
     window.setTimeout(() => speakWithCambridge(nextCard.term, 'en-US'), 150);
   }
 
+  async function regenerateActiveCard() {
+    if (!activeCard || isGenerating) return;
+
+    setIsGenerating(true);
+    const regeneratedCard = buildCard(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '');
+
+    try {
+      const aiData = await generateAiCardData(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '', activeCard.type);
+      regeneratedCard.meaning = aiData.meaning || regeneratedCard.meaning;
+      regeneratedCard.examples = aiData.examples.length ? aiData.examples : regeneratedCard.examples;
+      regeneratedCard.conversations = aiData.conversations.length ? aiData.conversations : regeneratedCard.conversations;
+      regeneratedCard.aiGenerated = true;
+    } catch {
+      regeneratedCard.aiGenerated = false;
+    }
+
+    setCards((current) =>
+      current.map((card) =>
+        card.id === activeCard.id
+          ? {
+              ...card,
+              meaning: regeneratedCard.meaning,
+              examples: regeneratedCard.examples,
+              conversations: regeneratedCard.conversations,
+              aiGenerated: regeneratedCard.aiGenerated,
+              updatedAt: Date.now(),
+            }
+          : card,
+      ),
+    );
+    setIsGenerating(false);
+    setIsFlipped(true);
+  }
+
   function showNext() {
     setIsChanging(true);
     window.setTimeout(() => {
@@ -1117,6 +1215,10 @@ function App() {
               <button onClick={showNext}>
                 <Shuffle size={18} />
                 Random card
+              </button>
+              <button onClick={regenerateActiveCard} disabled={isGenerating}>
+                <Sparkles size={18} />
+                {isGenerating ? 'Generating' : 'Regenerate'}
               </button>
               <button onClick={() => removeCard(activeCard.id)}>
                 <Trash2 size={18} />
