@@ -175,6 +175,7 @@ function classifyTerm(term) {
   const lower = term.toLowerCase();
   const words = lower.split(' ');
   const secondWord = words[1];
+  const knownAdjectives = new Set(['straightforward', 'successful', 'reliable', 'simple', 'clear', 'accurate']);
 
   if (words.length > 1 && phrasalParticles.has(secondWord)) return 'phrasalVerb';
   if (words.length > 2) return 'expression';
@@ -186,6 +187,7 @@ function classifyTerm(term) {
   }
   if (lower.endsWith('ly')) return 'adverb';
   if (
+    knownAdjectives.has(lower) ||
     lower.endsWith('able') ||
     lower.endsWith('ible') ||
     lower.endsWith('ous') ||
@@ -201,13 +203,41 @@ function classifyTerm(term) {
 
 function examplesFor(term, type, userExample = '') {
   const word = term.toLowerCase();
-  const readable = titleCase(term);
   const cleanExample = normalizeTerm(userExample);
 
   if (cleanExample) {
+    if (type === 'adjective') {
+      return [
+        cleanExample,
+        `The instructions are ${word}, so the team can finish the setup without help.`,
+        `The route is ${word} once you leave the station and follow the blue signs.`,
+        `Kity gave Max a ${word} answer instead of adding unnecessary details.`,
+      ];
+    }
+
+    if (type === 'noun') {
+      return [
+        cleanExample,
+        `The ${word} is Friday at 5 p.m., so the report needs to be ready today.`,
+        `Max asked whether the ${word} could be extended by two days.`,
+        `Kity missed the ${word} because the final file was still uploading.`,
+      ];
+    }
+
+    if (type === 'phrasalVerb') {
+      return [
+        cleanExample,
+        `Max needs to ${word} on the emails he missed this morning.`,
+        `Kity stayed after the meeting to ${word} with the rest of the team.`,
+        `The summary helped everyone ${word} after a week away.`,
+      ];
+    }
+
     return [
       cleanExample,
-      `In a similar situation, I would use "${word}" to make the idea clearer and more natural.`,
+      `The manager asked the team to ${word} the issue before lunch.`,
+      `Kity will ${word} the final version after Max reviews it.`,
+      `The client wants us to ${word} the request by Friday.`,
     ];
   }
 
@@ -241,14 +271,14 @@ function examplesFor(term, type, userExample = '') {
 
   if (type === 'expression') {
     return [
-      `"${readable}" is useful in casual conversations.`,
-      `I heard "${word}" in a movie and wrote it down.`,
+      `Max said "${term}" when the plan changed at the last minute.`,
+      `Kity used "${word}" after the client cancelled the call.`,
     ];
   }
 
   return [
-    `This ${word} is important for my daily English.`,
-    `I wrote down the ${word} so I can remember it later.`,
+    `The ${word} is Friday at 5 p.m., so the team needs the report today.`,
+    `Kity asked whether the ${word} could be moved to next week.`,
   ];
 }
 
@@ -344,26 +374,56 @@ function conversationExamples(term, type, userExample = '') {
       ];
     }
 
+    if (type === 'adjective') {
+      return [
+        [
+          { speaker: 'Max', line: 'The new reporting tool looks complicated.' },
+          { speaker: 'Kity', line: `It is actually ${word} once you choose the date range.` },
+          { speaker: 'Max', line: 'So I just select the dates and press Generate?' },
+          { speaker: 'Kity', line: 'Exactly. The summary appears in less than a minute.' },
+          { speaker: 'Max', line: 'That is easier than I expected.' },
+          { speaker: 'Kity', line: 'The setup page looks busy, but the process is simple.' },
+        ],
+        [
+          { speaker: 'Max', line: 'Can we finish the client proposal today?' },
+          { speaker: 'Kity', line: `Yes, the last section is ${word}; the legal part was the hard one.` },
+          { speaker: 'Max', line: 'Great. I will review the budget table first.' },
+          { speaker: 'Kity', line: 'I will check the timeline and send it before lunch.' },
+          { speaker: 'Max', line: 'Should we add more technical details?' },
+          { speaker: 'Kity', line: `No, keep the explanation ${word} so the client can decide quickly.` },
+        ],
+      ];
+    }
+
+    if (type === 'noun') {
+      return [
+        [
+          { speaker: 'Max', line: 'When do we need to send the final report?' },
+          { speaker: 'Kity', line: `The ${word} is Friday at 5 p.m.` },
+          { speaker: 'Max', line: 'Then I will finish the charts tonight.' },
+          { speaker: 'Kity', line: 'Great. I will review the summary tomorrow morning.' },
+        ],
+        [
+          { speaker: 'Max', line: 'The client asked for two more days.' },
+          { speaker: 'Kity', line: `We can extend the ${word}, but we need approval first.` },
+          { speaker: 'Max', line: 'I will ask the manager after lunch.' },
+          { speaker: 'Kity', line: 'Thanks. The design team needs a clear answer today.' },
+        ],
+      ];
+    }
+
     return [
       [
-        { speaker: 'Max', line: `I heard this sentence today: "${scenario}"` },
-        { speaker: 'Kity', line: `That is a natural place to use "${word}".` },
-        { speaker: 'Max', line: 'What should I pay attention to?' },
-        { speaker: 'Kity', line: 'Look at the words before and after it. They show the real situation.' },
-        { speaker: 'Max', line: `So I should not memorize "${word}" alone.` },
-        { speaker: 'Kity', line: 'Exactly. Learn it inside the sentence.' },
-        { speaker: 'Max', line: 'That makes it easier to remember.' },
-        { speaker: 'Kity', line: 'And easier to use naturally later.' },
+        { speaker: 'Max', line: `The manager said, "${scenario}"` },
+        { speaker: 'Kity', line: 'Then the whole team needs to act before the meeting.' },
+        { speaker: 'Max', line: 'I will update the dashboard first.' },
+        { speaker: 'Kity', line: 'Good. I will check the client notes and send the summary.' },
       ],
       [
-        { speaker: 'Max', line: `Can you use "${word}" in a different situation?` },
-        { speaker: 'Kity', line: `Sure. The key is to keep the meaning close to "${scenario}"` },
-        { speaker: 'Max', line: 'So the situation changes, but the idea stays connected.' },
-        { speaker: 'Kity', line: 'Exactly. That is how native speakers reuse vocabulary.' },
-        { speaker: 'Max', line: `I will listen for "${word}" in conversations.` },
-        { speaker: 'Kity', line: 'Good. Notice who says it and why.' },
-        { speaker: 'Max', line: 'That gives me more context.' },
-        { speaker: 'Kity', line: 'Yes, and context is what makes it useful.' },
+        { speaker: 'Max', line: 'Can we finish this before lunch?' },
+        { speaker: 'Kity', line: `${scenario}` },
+        { speaker: 'Max', line: 'All right. I will take care of the first part.' },
+        { speaker: 'Kity', line: 'Perfect. I will handle the final review.' },
       ],
     ];
   }
@@ -484,9 +544,31 @@ function normalizeAiType(value, fallback) {
   return aliases[compact] || fallback;
 }
 
+function generatedText(data) {
+  const examples = Array.isArray(data.examples) ? data.examples : [];
+  const conversations = Array.isArray(data.conversations) ? data.conversations : [];
+  const lines = conversations.flatMap((conversation) =>
+    Array.isArray(conversation) ? conversation.map((line) => line?.line || '') : [],
+  );
+
+  return [data.meaning || '', ...examples, ...lines].join(' ');
+}
+
 function validateAiCardData(data) {
   if (!data.meaning || !data.examples.length || !data.conversations.length) {
     throw new Error('AI generated incomplete card content');
+  }
+
+  const text = generatedText(data);
+  const disallowed = [
+    /—/,
+    /[¿¡ñáéíóúü]/i,
+    /\b(el|la|los|las|un|una|unos|unas|para|porque|cuando|donde|como|significa|traduccion|espanol)\b/i,
+    /\b(word|vocabulary|flashcard|card|prompt|AI|JSON|learn|study|memorize|memorise|practice|practise)\b/i,
+  ];
+
+  if (disallowed.some((pattern) => pattern.test(text))) {
+    throw new Error('AI generated translated or meta content');
   }
 }
 
@@ -1056,7 +1138,7 @@ function App() {
       nextCard.aiGenerated = true;
     } catch (error) {
       setGenerationError(
-        'La card se guardo con contenido basico porque la IA no respondio bien. Cuando configures Gemini, usa Regenerate.',
+        'The card was saved with basic English content because AI did not return a clean answer. Try Regenerate again from Admin.',
       );
       nextCard.aiGenerated = false;
     }
@@ -1085,7 +1167,7 @@ function App() {
       regeneratedCard.aiGenerated = true;
     } catch {
       setGenerationError(
-        'La IA no pudo regenerar una version mejor para esta card. Prueba con otro ejemplo desde Admin.',
+        'AI could not regenerate a clean English version for this card. Try a clearer example from Admin.',
       );
       setIsGenerating(false);
       return;
