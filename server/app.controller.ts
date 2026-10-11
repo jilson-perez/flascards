@@ -117,11 +117,11 @@ async function generateWithGemini(prompt: string) {
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const baseUrl = process.env.GEMINI_API_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-  const response = await fetch(`${baseUrl}/models/${model}:generateContent`, {
+  const url = `${baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
