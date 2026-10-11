@@ -484,59 +484,6 @@ function normalizeAiType(value, fallback) {
   return aliases[compact] || fallback;
 }
 
-function vocabularyVariants(term, type) {
-  const lower = term.toLowerCase();
-  const words = lower.split(/\s+/);
-  const variants = new Set([lower]);
-
-  if (words.length === 1) {
-    variants.add(`${lower}s`);
-    variants.add(`${lower}ed`);
-    variants.add(`${lower}ing`);
-    if (lower.endsWith('e')) {
-      variants.add(`${lower}d`);
-      variants.add(`${lower.slice(0, -1)}ing`);
-    }
-    return [...variants];
-  }
-
-  if (type === 'phrasalVerb' && words.length === 2) {
-    const [verb, particle] = words;
-    const verbForms = new Set([verb, `${verb}s`, `${verb}ed`, `${verb}ing`]);
-    if (verb.endsWith('e')) {
-      verbForms.add(`${verb}d`);
-      verbForms.add(`${verb.slice(0, -1)}ing`);
-    }
-    verbForms.forEach((form) => variants.add(`${form} ${particle}`));
-  }
-
-  return [...variants];
-}
-
-function textUsesVocabulary(text, term, type) {
-  const lower = String(text || '').toLowerCase();
-  return vocabularyVariants(term, type).some((variant) => {
-    if (variant.includes(' ')) return lower.includes(variant);
-    return new RegExp(`\\b${escapeRegExp(variant)}\\b`, 'i').test(lower);
-  });
-}
-
-function hasMetaConversation(conversations) {
-  const blockedPatterns = [
-    /\b(the )?word\b/i,
-    /\bvocabulary\b/i,
-    /\bflashcard\b/i,
-    /\bcard\b/i,
-    /\bpractice\b/i,
-    /\blearn(ing)?\b/i,
-    /\bstudy\b/i,
-  ];
-
-  return conversations.some((conversation) =>
-    conversation.some((line) => blockedPatterns.some((pattern) => pattern.test(line.line || ''))),
-  );
-}
-
 function hasStaleTemplateConversation(conversations) {
   const stalePatterns = [
     /new software/i,
@@ -558,28 +505,18 @@ function isWeakMeaning(meaning) {
   );
 }
 
-function validateAiCardData(data, term, type) {
-  if (!data.examples.some((example) => textUsesVocabulary(example, term, type))) {
-    throw new Error('AI examples did not use the vocabulary naturally');
-  }
-
-  if (isWeakMeaning(data.meaning)) {
+function validateAiCardData(data) {
+  if (!data.meaning || isWeakMeaning(data.meaning)) {
     throw new Error('AI generated a weak meaning');
   }
 
-  if (hasMetaConversation(data.conversations) || hasStaleTemplateConversation(data.conversations)) {
-    throw new Error('AI generated a meta or stale template conversation');
+  if (!data.examples.length || !data.conversations.length) {
+    throw new Error('AI generated incomplete card content');
   }
 
-  data.conversations.forEach((conversation) => {
-    if (conversation.length !== 8) {
-      throw new Error('AI conversation must have exactly 8 lines');
-    }
-    const uses = conversation.filter((line) => textUsesVocabulary(line.line, term, type)).length;
-    if (uses < 2) {
-      throw new Error('AI conversation did not use the vocabulary enough');
-    }
-  });
+  if (hasStaleTemplateConversation(data.conversations)) {
+    throw new Error('AI generated a meta or stale template conversation');
+  }
 }
 
 async function generateAiCardData(term, userExample, type) {
@@ -600,16 +537,16 @@ async function generateAiCardData(term, userExample, type) {
   const normalized = {
     type: aiType,
     meaning: String(data.meaning).trim(),
-    examples: data.examples.slice(0, 2).map((example) => String(example).trim()).filter(Boolean),
-    conversations: data.conversations.slice(0, 2).map((conversation) =>
-      conversation.slice(0, 8).map((line, index) => ({
+    examples: data.examples.slice(0, 4).map((example) => String(example).trim()).filter(Boolean),
+    conversations: data.conversations.slice(0, 3).map((conversation) =>
+      conversation.slice(0, 6).map((line, index) => ({
         speaker: line.speaker === 'Kity' || index % 2 === 1 ? 'Kity' : 'Max',
         line: String(line.line || '').trim(),
       })),
     ),
   };
 
-  validateAiCardData(normalized, term, aiType);
+  validateAiCardData(normalized);
 
   return normalized;
 }
