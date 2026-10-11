@@ -44,6 +44,46 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const POLLINATIONS_OPENAI_URL = 'https://text.pollinations.ai/openai';
+const KNOWN_ADJECTIVES = new Set(['straightforward', 'successful', 'reliable', 'simple', 'clear', 'accurate']);
+const PHRASAL_PARTICLES = new Set([
+  'up',
+  'out',
+  'on',
+  'off',
+  'in',
+  'away',
+  'back',
+  'down',
+  'over',
+  'through',
+  'around',
+  'after',
+  'for',
+]);
+
+function inferType(term: string, fallback: string) {
+  const lower = term.toLowerCase().trim();
+  const words = lower.split(/\s+/).filter(Boolean);
+
+  if (words.length > 1 && PHRASAL_PARTICLES.has(words[words.length - 1])) return 'phrasalVerb';
+  if (KNOWN_ADJECTIVES.has(lower)) return 'adjective';
+  if (lower.endsWith('ly')) return 'adverb';
+  if (
+    lower.endsWith('able') ||
+    lower.endsWith('ible') ||
+    lower.endsWith('ous') ||
+    lower.endsWith('ful') ||
+    lower.endsWith('ive') ||
+    lower.endsWith('al')
+  ) {
+    return 'adjective';
+  }
+  if (lower.endsWith('tion') || lower.endsWith('ment') || lower.endsWith('ness')) return 'noun';
+  if (lower.endsWith('ize') || lower.endsWith('ise') || lower.endsWith('ate') || lower.endsWith('fy')) return 'verb';
+  if (words.length > 2) return 'expression';
+
+  return TYPE_LABELS[fallback] ? fallback : 'noun';
+}
 
 function sentenceWithPeriod(sentence: string) {
   if (!sentence) return '';
@@ -395,7 +435,8 @@ export class AppController {
   async generateCard(@Body() body: GenerateCardBody) {
     const term = String(body.term || '').trim();
     const userExample = String(body.userExample || '').trim();
-    const type = String(body.type || 'noun').trim();
+    const requestedType = String(body.type || 'noun').trim();
+    const type = inferType(term, requestedType);
 
     if (!term || !userExample) {
       throw new BadRequestException('Term and example are required.');
