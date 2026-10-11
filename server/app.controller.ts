@@ -1,5 +1,4 @@
 import {
-  BadGatewayException,
   BadRequestException,
   Body,
   ConflictException,
@@ -45,6 +44,11 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const POLLINATIONS_OPENAI_URL = 'https://text.pollinations.ai/openai';
+
+function sentenceWithPeriod(sentence: string) {
+  if (!sentence) return '';
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
 
 function publicAccount(account: any) {
   if (!account) return null;
@@ -123,12 +127,15 @@ async function generateWithGemini(prompt: string) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.9,
-        responseMimeType: 'application/json',
+        response_mime_type: 'application/json',
       },
     }),
   });
 
-  if (!response.ok) throw new Error(`Gemini generation failed: ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Gemini generation failed: ${response.status} ${errorText.slice(0, 500)}`);
+  }
   const payload = await response.json();
   const text = payload?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join('') || '';
   return parseAiJson(text);
@@ -151,9 +158,50 @@ async function generateWithPollinations(prompt: string) {
     }),
   });
 
-  if (!response.ok) throw new Error(`Pollinations generation failed: ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Pollinations generation failed: ${response.status} ${errorText.slice(0, 500)}`);
+  }
   const payload = await response.json();
   return parseAiJson(payload?.choices?.[0]?.message?.content || '');
+}
+
+function generateLocalFallbackCard(term: string, userExample: string, type: string) {
+  const normalizedTerm = term.toLowerCase();
+  const example = sentenceWithPeriod(userExample);
+  const readableType = TYPE_LABELS[type] || 'Vocabulary';
+
+  return {
+    type,
+    meaning: `${term} is used in the context of: "${example}" As a ${readableType.toLowerCase()}, focus on the situation around it: who or what is involved, what changes, and what result the sentence describes. This helps you understand the sense from real usage instead of memorising an isolated translation.`,
+    examples: [
+      `${example} — ${example}`,
+      `The team repeated the instructions so everyone could use "${normalizedTerm}" correctly. — El equipo repitio las instrucciones para que todos pudieran usar "${normalizedTerm}" correctamente.`,
+      `In a meeting, "${normalizedTerm}" can sound natural when the situation matches the original example. — En una reunion, "${normalizedTerm}" puede sonar natural cuando la situacion coincide con el ejemplo original.`,
+      `I wrote a new sentence with "${normalizedTerm}" and checked whether it sounded natural. — Escribi una nueva frase con "${normalizedTerm}" y revise si sonaba natural.`,
+    ],
+    conversations: [
+      [
+        { speaker: 'Max', line: `I found this sentence: "${example}" — Encontre esta frase: "${example}"` },
+        { speaker: 'Kity', line: `Good. The context helps you understand how "${normalizedTerm}" works. — Bien. El contexto te ayuda a entender como funciona "${normalizedTerm}".` },
+        { speaker: 'Max', line: 'So I should look at the full situation, not only the isolated term. — Entonces debo mirar toda la situacion, no solo el termino aislado.' },
+        { speaker: 'Kity', line: 'Exactly. That is how it becomes useful in conversation. — Exacto. Asi se vuelve util en una conversacion.' },
+      ],
+      [
+        { speaker: 'Max', line: `Can I use "${normalizedTerm}" in a different situation? — Puedo usar "${normalizedTerm}" en otra situacion?` },
+        { speaker: 'Kity', line: 'Yes, but keep the same core idea from the original sentence. — Si, pero manten la misma idea central de la frase original.' },
+        { speaker: 'Max', line: 'That helps me avoid forcing it into unnatural sentences. — Eso me ayuda a no forzarlo en frases poco naturales.' },
+        { speaker: 'Kity', line: 'Right. Natural use matters more than repetition. — Correcto. El uso natural importa mas que la repeticion.' },
+      ],
+      [
+        { speaker: 'Max', line: `I will listen for "${normalizedTerm}" when people speak. — Voy a escuchar "${normalizedTerm}" cuando la gente hable.` },
+        { speaker: 'Kity', line: 'Great idea. Pay attention to tone, topic, and grammar. — Buena idea. Presta atencion al tono, tema y gramatica.' },
+        { speaker: 'Max', line: 'Then I can build better examples later. — Luego podre crear mejores ejemplos despues.' },
+        { speaker: 'Kity', line: 'Exactly. Real context improves memory. — Exacto. El contexto real mejora la memoria.' },
+      ],
+    ],
+    provider: 'local-fallback',
+  };
 }
 
 @Controller('api')
@@ -229,16 +277,23 @@ export class AppController {
 
     const prompt = cardPrompt(term, userExample, type);
     const providers = process.env.GEMINI_API_KEY ? ['gemini', 'pollinations'] : ['pollinations'];
+    const providerErrors: string[] = [];
 
     for (const provider of providers) {
       try {
         const card = provider === 'gemini' ? await generateWithGemini(prompt) : await generateWithPollinations(prompt);
         return { ...card, provider };
-      } catch {
-        // Try the next provider before reporting failure.
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        providerErrors.push(`${provider}: ${message}`);
+        console.warn(`[generate-card] ${provider} failed`, message);
       }
     }
 
-    throw new BadGatewayException('AI generation is unavailable.');
+    if (providerErrors.length) {
+      console.warn('[generate-card] returning local fallback after provider failures', providerErrors.join(' | '));
+    }
+
+    return generateLocalFallbackCard(term, userExample, type);
   }
 }
