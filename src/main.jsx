@@ -27,7 +27,6 @@ const ACCOUNTS_KEY = 'english-flashcards-accounts-v1';
 const SESSION_KEY = 'english-flashcards-session-v1';
 const REMEMBER_KEY = 'english-flashcards-remember-v1';
 const CAMBRIDGE_BASE_URL = '/cambridge';
-const POLLINATIONS_OPENAI_URL = 'https://text.pollinations.ai/openai';
 const cambridgeAudioCache = new Map();
 const cambridgeEntryCache = new Map();
 let activeAudio = null;
@@ -465,17 +464,6 @@ function buildCard(term, userExample = '') {
   };
 }
 
-function parseAiJson(text) {
-  const clean = text
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
-  const firstBrace = clean.indexOf('{');
-  const lastBrace = clean.lastIndexOf('}');
-  const jsonText = firstBrace >= 0 && lastBrace >= 0 ? clean.slice(firstBrace, lastBrace + 1) : clean;
-  return JSON.parse(jsonText);
-}
-
 function normalizeAiType(value, fallback) {
   const compact = String(value || '')
     .trim()
@@ -595,76 +583,14 @@ function validateAiCardData(data, term, type) {
 }
 
 async function generateAiCardData(term, userExample, type) {
-  const prompt = `
-You are helping a Spanish-speaking learner study English vocabulary.
-Create realistic English-only content for a vocabulary card.
-
-Vocabulary: "${term}"
-Initial detected type: "${TYPE_LABELS[type]}"
-Learner example/context: "${userExample}"
-
-Rules:
-- First infer the correct type from the learner example, not just from the spelling.
-- Valid types are: verb, noun, adjective, adverb, expression, phrasalVerb.
-- The meaning must be educational and context-aware, similar to a learner dictionary.
-- The meaning must explain what "${term}" means in the learner's example/context.
-- The meaning must define the real sense being used, not the grammar category.
-- Include common usage patterns or collocations when useful, such as "meet a deadline", "miss a deadline", "tight deadline".
-- Do not give generic grammar-only meanings like "a noun used to name a person, thing, idea, event, or situation".
-- Do not simply repeat the learner example as the meaning.
-- Do not write meta sentences like "I learn the word water".
-- Do not mention studying, practicing, vocabulary, cards, examples, or "the word".
-- Use the vocabulary naturally in real situations.
-- The conversation must be a realistic scene, not an explanation about language learning.
-- The vocabulary must appear naturally in the dialogue at least twice.
-- If "${term}" is a verb or phrasal verb, use it with correct grammar. Never write phrases like "it is pretty ${term}" unless the vocabulary is truly an adjective.
-- Do not reuse a generic software/report/setup conversation unless the learner example is actually about software.
-- Make each conversation a different real-world context.
-- Keep the meaning clear and short.
-- Make examples natural and useful.
-- Make 2 conversations, each exactly 8 lines, with speakers Max and Kity.
-- Each conversation must use "${term}" naturally in a realistic scenario.
-- Good style example:
-  Max: Have you tried the new software yet?
-  Kity: Yes, I used it this morning to create a report.
-  Max: Was it difficult? I’m still getting used to it.
-  Kity: Not really. It’s pretty straightforward once you know where everything is.
-- Return ONLY valid JSON with this shape:
-{
-  "type": "verb | noun | adjective | adverb | expression | phrasalVerb",
-  "meaning": "learner-dictionary style meaning with a short usage note",
-  "examples": ["example 1", "example 2"],
-  "conversations": [
-    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}],
-    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}]
-  ]
-}
-`;
-
-  const response = await fetch(POLLINATIONS_OPENAI_URL, {
+  const data = await apiRequest('/api/generate-card', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'openai',
-      temperature: 0.9,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Return only valid JSON. Create context-specific learner dictionary content and realistic dialogue. Do not wrap the JSON in markdown.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+      term,
+      userExample,
+      type,
     }),
   });
-  if (!response.ok) throw new Error(`AI generation failed: ${response.status}`);
-
-  const payload = await response.json();
-  const text = payload?.choices?.[0]?.message?.content || '';
-  const data = parseAiJson(text);
 
   if (!data.meaning || !Array.isArray(data.examples) || !Array.isArray(data.conversations)) {
     throw new Error('AI generation returned an invalid card shape');
@@ -1222,10 +1148,9 @@ function App() {
       nextCard.aiGenerated = true;
     } catch (error) {
       setGenerationError(
-        'La IA no pudo generar una card suficientemente buena para ese ejemplo. Intenta de nuevo con un ejemplo mas completo.',
+        'La card se guardo con contenido basico porque la IA no respondio bien. Cuando configures Gemini, usa Regenerate.',
       );
-      setIsGenerating(false);
-      return;
+      nextCard.aiGenerated = false;
     }
 
     setCards((current) => [nextCard, ...current]);

@@ -53,8 +53,12 @@ For deployment, configure these environment variables in your host:
 ```bash
 UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
 PORT=8787
 ```
+
+`GEMINI_API_KEY` is optional, but recommended for higher-quality meanings and conversations. Create it in Google AI Studio and add it to Render as an environment variable. If it is missing, the backend falls back to the free Pollinations endpoint, and the app still saves the card with basic local content if AI generation fails.
 
 ## What it does
 
