@@ -109,6 +109,7 @@ const commonVerbs = new Set([
   'open',
   'play',
   'put',
+  'raise',
   'read',
   'run',
   'say',
@@ -283,32 +284,87 @@ function meaningFor(term, type, userExample = '') {
   return `${titleCase(term)} is used to talk about a specific thing, idea, event, or situation. In real English, notice the verbs and adjectives that commonly appear with it.${context}`;
 }
 
+function sentenceWithPeriod(sentence) {
+  if (!sentence) return '';
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
+
 function conversationExamples(term, type, userExample = '') {
   const word = term.toLowerCase();
   const cleanExample = normalizeTerm(userExample);
-  const scenario = cleanExample || `We need to use ${word} in a normal situation.`;
+  const scenario = sentenceWithPeriod(cleanExample);
 
   if (cleanExample) {
+    if (type === 'phrasalVerb') {
+      return [
+        [
+          { speaker: 'Max', line: `I saw this sentence in the news: "${scenario}"` },
+          { speaker: 'Kity', line: `Yes, "${word}" means someone is asking or urging people to do something there.` },
+          { speaker: 'Max', line: 'So it is stronger than just mentioning the group?' },
+          { speaker: 'Kity', line: `Exactly. They are actively ${word.replace(/^call on$/, 'calling on')} people to respond.` },
+          { speaker: 'Max', line: 'That sounds formal, like a public announcement.' },
+          { speaker: 'Kity', line: `Right. You often hear "${word}" in speeches, news, or official requests.` },
+          { speaker: 'Max', line: 'Now the sentence makes more sense.' },
+          { speaker: 'Kity', line: 'Yes, focus on who is asking and what action they want.' },
+        ],
+        [
+          { speaker: 'Max', line: `The mayor will ${word} residents to save water this summer.` },
+          { speaker: 'Kity', line: 'That sounds natural because it is a public request.' },
+          { speaker: 'Max', line: 'Could a teacher use it with students too?' },
+          { speaker: 'Kity', line: `Yes. A teacher might ${word} students to help after class.` },
+          { speaker: 'Max', line: 'So the phrase points to a request for action.' },
+          { speaker: 'Kity', line: 'Exactly, and the context tells you what action is wanted.' },
+          { speaker: 'Max', line: 'Good, I can use it in serious conversations.' },
+          { speaker: 'Kity', line: 'That is the right feeling for it.' },
+        ],
+      ];
+    }
+
+    if (type === 'verb') {
+      return [
+        [
+          { speaker: 'Max', line: `At the meeting, the manager said, "${scenario}"` },
+          { speaker: 'Kity', line: `That means people should ${word} their hands to show agreement.` },
+          { speaker: 'Max', line: 'So everyone can see who supports the idea.' },
+          { speaker: 'Kity', line: `Exactly. In that context, ${word} means to lift something up.` },
+          { speaker: 'Max', line: 'Could I use it for prices too?' },
+          { speaker: 'Kity', line: `Yes, a company can ${word} prices, but that is a different context.` },
+          { speaker: 'Max', line: 'I see. The object after the verb matters.' },
+          { speaker: 'Kity', line: 'Right, it tells you what is going up.' },
+        ],
+        [
+          { speaker: 'Max', line: `Please ${word} your hand if you have a question.` },
+          { speaker: 'Kity', line: 'That sounds natural in a class or meeting.' },
+          { speaker: 'Max', line: 'What if I say the company will raise salaries?' },
+          { speaker: 'Kity', line: 'That works too, because salaries go up.' },
+          { speaker: 'Max', line: 'So the meaning changes a little with the object.' },
+          { speaker: 'Kity', line: 'Yes, but the basic idea is moving something higher.' },
+          { speaker: 'Max', line: 'That helps me connect the uses.' },
+          { speaker: 'Kity', line: 'Exactly. Context makes it clearer.' },
+        ],
+      ];
+    }
+
     return [
       [
-        { speaker: 'Max', line: 'Have you tried the new software yet?' },
-        { speaker: 'Kity', line: `Yes, I used it this morning. It was pretty ${word}.` },
-        { speaker: 'Max', line: 'Really? I thought creating the report would be confusing.' },
-        { speaker: 'Kity', line: 'Not at all. You choose a date range and click Generate.' },
-        { speaker: 'Max', line: 'That sounds easier than I expected.' },
-        { speaker: 'Kity', line: `Exactly. The process is ${word} once you know where everything is.` },
-        { speaker: 'Max', line: 'Could you show me after lunch?' },
-        { speaker: 'Kity', line: 'Sure. It will only take a few minutes.' },
+        { speaker: 'Max', line: `I heard this sentence today: "${scenario}"` },
+        { speaker: 'Kity', line: `That is a natural place to use "${word}".` },
+        { speaker: 'Max', line: 'What should I pay attention to?' },
+        { speaker: 'Kity', line: 'Look at the words before and after it. They show the real situation.' },
+        { speaker: 'Max', line: `So I should not memorize "${word}" alone.` },
+        { speaker: 'Kity', line: 'Exactly. Learn it inside the sentence.' },
+        { speaker: 'Max', line: 'That makes it easier to remember.' },
+        { speaker: 'Kity', line: 'And easier to use naturally later.' },
       ],
       [
-        { speaker: 'Max', line: `I read this sentence earlier: "${scenario}"` },
-        { speaker: 'Kity', line: 'That makes sense in a work conversation.' },
-        { speaker: 'Max', line: `Could I say the instructions are ${word}?` },
-        { speaker: 'Kity', line: 'Yes, especially if they are clear and easy to follow.' },
-        { speaker: 'Max', line: 'Good. I want to use it when I explain the app to Daniel.' },
-        { speaker: 'Kity', line: `Then say, "The setup is ${word}, so you can finish it quickly."` },
-        { speaker: 'Max', line: 'Perfect. That sounds natural.' },
-        { speaker: 'Kity', line: 'It does. Use it when something feels simple and direct.' },
+        { speaker: 'Max', line: `Can you use "${word}" in a different situation?` },
+        { speaker: 'Kity', line: `Sure. The key is to keep the meaning close to "${scenario}"` },
+        { speaker: 'Max', line: 'So the situation changes, but the idea stays connected.' },
+        { speaker: 'Kity', line: 'Exactly. That is how native speakers reuse vocabulary.' },
+        { speaker: 'Max', line: `I will listen for "${word}" in conversations.` },
+        { speaker: 'Kity', line: 'Good. Notice who says it and why.' },
+        { speaker: 'Max', line: 'That gives me more context.' },
+        { speaker: 'Kity', line: 'Yes, and context is what makes it useful.' },
       ],
     ];
   }
@@ -420,6 +476,63 @@ function parseAiJson(text) {
   return JSON.parse(jsonText);
 }
 
+function normalizeAiType(value, fallback) {
+  const compact = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]/g, '');
+
+  const aliases = {
+    verb: 'verb',
+    noun: 'noun',
+    adjective: 'adjective',
+    adverb: 'adverb',
+    expression: 'expression',
+    phrase: 'expression',
+    idiom: 'expression',
+    phrasalverb: 'phrasalVerb',
+  };
+
+  return aliases[compact] || fallback;
+}
+
+function vocabularyVariants(term, type) {
+  const lower = term.toLowerCase();
+  const words = lower.split(/\s+/);
+  const variants = new Set([lower]);
+
+  if (words.length === 1) {
+    variants.add(`${lower}s`);
+    variants.add(`${lower}ed`);
+    variants.add(`${lower}ing`);
+    if (lower.endsWith('e')) {
+      variants.add(`${lower}d`);
+      variants.add(`${lower.slice(0, -1)}ing`);
+    }
+    return [...variants];
+  }
+
+  if (type === 'phrasalVerb' && words.length === 2) {
+    const [verb, particle] = words;
+    const verbForms = new Set([verb, `${verb}s`, `${verb}ed`, `${verb}ing`]);
+    if (verb.endsWith('e')) {
+      verbForms.add(`${verb}d`);
+      verbForms.add(`${verb.slice(0, -1)}ing`);
+    }
+    verbForms.forEach((form) => variants.add(`${form} ${particle}`));
+  }
+
+  return [...variants];
+}
+
+function textUsesVocabulary(text, term, type) {
+  const lower = String(text || '').toLowerCase();
+  return vocabularyVariants(term, type).some((variant) => {
+    if (variant.includes(' ')) return lower.includes(variant);
+    return new RegExp(`\\b${escapeRegExp(variant)}\\b`, 'i').test(lower);
+  });
+}
+
 function hasMetaConversation(conversations) {
   const blockedPatterns = [
     /\b(the )?word\b/i,
@@ -428,7 +541,6 @@ function hasMetaConversation(conversations) {
     /\bcard\b/i,
     /\bpractice\b/i,
     /\blearn(ing)?\b/i,
-    /\bexample\b/i,
     /\bstudy\b/i,
   ];
 
@@ -437,22 +549,66 @@ function hasMetaConversation(conversations) {
   );
 }
 
+function hasStaleTemplateConversation(conversations) {
+  const stalePatterns = [
+    /new software/i,
+    /create a report/i,
+    /click Generate/i,
+    /pretty\s+\w+/i,
+    /the setup is/i,
+    /explain the app/i,
+  ];
+
+  return conversations.some((conversation) =>
+    conversation.some((line) => stalePatterns.some((pattern) => pattern.test(line.line || ''))),
+  );
+}
+
 function isWeakMeaning(meaning) {
-  return /noun used to name|verb means to perform this action|describes the quality|used as a complete idea/i.test(meaning);
+  return /noun used to name|verb means to perform this action|describes the quality|used as a complete idea|specific thing, idea, event, or situation|action expressed by this phrasal verb/i.test(
+    meaning,
+  );
+}
+
+function validateAiCardData(data, term, type) {
+  if (!data.examples.some((example) => textUsesVocabulary(example, term, type))) {
+    throw new Error('AI examples did not use the vocabulary naturally');
+  }
+
+  if (isWeakMeaning(data.meaning)) {
+    throw new Error('AI generated a weak meaning');
+  }
+
+  if (hasMetaConversation(data.conversations) || hasStaleTemplateConversation(data.conversations)) {
+    throw new Error('AI generated a meta or stale template conversation');
+  }
+
+  data.conversations.forEach((conversation) => {
+    if (conversation.length !== 8) {
+      throw new Error('AI conversation must have exactly 8 lines');
+    }
+    const uses = conversation.filter((line) => textUsesVocabulary(line.line, term, type)).length;
+    if (uses < 2) {
+      throw new Error('AI conversation did not use the vocabulary enough');
+    }
+  });
 }
 
 async function generateAiCardData(term, userExample, type) {
   const prompt = `
 You are helping a Spanish-speaking learner study English vocabulary.
-Create realistic English-only study content for this vocabulary card.
+Create realistic English-only content for a vocabulary card.
 
 Vocabulary: "${term}"
-Type: "${TYPE_LABELS[type]}"
+Initial detected type: "${TYPE_LABELS[type]}"
 Learner example/context: "${userExample}"
 
 Rules:
+- First infer the correct type from the learner example, not just from the spelling.
+- Valid types are: verb, noun, adjective, adverb, expression, phrasalVerb.
 - The meaning must be educational and context-aware, similar to a learner dictionary.
 - The meaning must explain what "${term}" means in the learner's example/context.
+- The meaning must define the real sense being used, not the grammar category.
 - Include common usage patterns or collocations when useful, such as "meet a deadline", "miss a deadline", "tight deadline".
 - Do not give generic grammar-only meanings like "a noun used to name a person, thing, idea, event, or situation".
 - Do not simply repeat the learner example as the meaning.
@@ -461,6 +617,9 @@ Rules:
 - Use the vocabulary naturally in real situations.
 - The conversation must be a realistic scene, not an explanation about language learning.
 - The vocabulary must appear naturally in the dialogue at least twice.
+- If "${term}" is a verb or phrasal verb, use it with correct grammar. Never write phrases like "it is pretty ${term}" unless the vocabulary is truly an adjective.
+- Do not reuse a generic software/report/setup conversation unless the learner example is actually about software.
+- Make each conversation a different real-world context.
 - Keep the meaning clear and short.
 - Make examples natural and useful.
 - Make 2 conversations, each exactly 8 lines, with speakers Max and Kity.
@@ -472,11 +631,12 @@ Rules:
   Kity: Not really. It’s pretty straightforward once you know where everything is.
 - Return ONLY valid JSON with this shape:
 {
+  "type": "verb | noun | adjective | adverb | expression | phrasalVerb",
   "meaning": "learner-dictionary style meaning with a short usage note",
   "examples": ["example 1", "example 2"],
   "conversations": [
-    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}],
-    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}]
+    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}],
+    [{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."},{"speaker":"Max","line":"..."},{"speaker":"Kity","line":"..."}]
   ]
 }
 `;
@@ -486,10 +646,12 @@ Rules:
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'openai',
+      temperature: 0.9,
       messages: [
         {
           role: 'system',
-          content: 'Return only valid JSON. Do not wrap the JSON in markdown.',
+          content:
+            'Return only valid JSON. Create context-specific learner dictionary content and realistic dialogue. Do not wrap the JSON in markdown.',
         },
         {
           role: 'user',
@@ -508,7 +670,9 @@ Rules:
     throw new Error('AI generation returned an invalid card shape');
   }
 
+  const aiType = normalizeAiType(data.type, type);
   const normalized = {
+    type: aiType,
     meaning: String(data.meaning).trim(),
     examples: data.examples.slice(0, 2).map((example) => String(example).trim()).filter(Boolean),
     conversations: data.conversations.slice(0, 2).map((conversation) =>
@@ -519,13 +683,7 @@ Rules:
     ),
   };
 
-  if (hasMetaConversation(normalized.conversations)) {
-    throw new Error('AI generated meta conversation instead of real dialogue');
-  }
-
-  if (isWeakMeaning(normalized.meaning)) {
-    normalized.meaning = meaningFor(term, type, userExample);
-  }
+  validateAiCardData(normalized, term, aiType);
 
   return normalized;
 }
@@ -856,6 +1014,7 @@ function App() {
   const [term, setTerm] = useState('');
   const [example, setExample] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
   const [deckReady, setDeckReady] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [isChanging, setIsChanging] = useState(false);
@@ -1042,6 +1201,7 @@ function App() {
     const normalized = normalizeTerm(term);
     const normalizedExample = normalizeTerm(example);
     if (!normalized || !normalizedExample || isGenerating) return;
+    setGenerationError('');
 
     const exists = cards.some((card) => card.term.toLowerCase() === normalized.toLowerCase());
     if (exists) {
@@ -1055,12 +1215,17 @@ function App() {
 
     try {
       const aiData = await generateAiCardData(nextCard.term, normalizedExample, nextCard.type);
+      nextCard.type = aiData.type || nextCard.type;
       nextCard.meaning = aiData.meaning || nextCard.meaning;
       nextCard.examples = aiData.examples.length ? aiData.examples : nextCard.examples;
       nextCard.conversations = aiData.conversations.length ? aiData.conversations : nextCard.conversations;
       nextCard.aiGenerated = true;
-    } catch {
-      nextCard.aiGenerated = false;
+    } catch (error) {
+      setGenerationError(
+        'La IA no pudo generar una card suficientemente buena para ese ejemplo. Intenta de nuevo con un ejemplo mas completo.',
+      );
+      setIsGenerating(false);
+      return;
     }
 
     setCards((current) => [nextCard, ...current]);
@@ -1075,16 +1240,22 @@ function App() {
     if (!activeCard || isGenerating) return;
 
     setIsGenerating(true);
+    setGenerationError('');
     const regeneratedCard = buildCard(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '');
 
     try {
       const aiData = await generateAiCardData(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '', activeCard.type);
+      regeneratedCard.type = aiData.type || regeneratedCard.type;
       regeneratedCard.meaning = aiData.meaning || regeneratedCard.meaning;
       regeneratedCard.examples = aiData.examples.length ? aiData.examples : regeneratedCard.examples;
       regeneratedCard.conversations = aiData.conversations.length ? aiData.conversations : regeneratedCard.conversations;
       regeneratedCard.aiGenerated = true;
     } catch {
-      regeneratedCard.aiGenerated = false;
+      setGenerationError(
+        'La IA no pudo regenerar una version mejor para esta card. Prueba con otro ejemplo desde Admin.',
+      );
+      setIsGenerating(false);
+      return;
     }
 
     setCards((current) =>
@@ -1092,6 +1263,7 @@ function App() {
         card.id === activeCard.id
           ? {
               ...card,
+              type: regeneratedCard.type,
               meaning: regeneratedCard.meaning,
               examples: regeneratedCard.examples,
               conversations: regeneratedCard.conversations,
@@ -1230,6 +1402,7 @@ function App() {
               <FlipHorizontal2 size={18} />
               {isFlipped ? 'Back to word' : 'See meaning'}
             </button>
+            {generationError && <p className="auth-error generation-error">{generationError}</p>}
 
             <div className="actions" aria-label="Difficulty choices">
               <button className="easy" onClick={() => markDifficulty('easy')}>
@@ -1476,6 +1649,7 @@ function App() {
               {isGenerating ? 'Generating...' : 'Build card'}
             </button>
           </div>
+          {generationError && <p className="auth-error generation-error">{generationError}</p>}
         </form>
 
         <div className="filters" aria-label="Card filters">

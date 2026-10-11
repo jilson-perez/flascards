@@ -169,6 +169,12 @@ button:disabled {
   font-weight: 850;
 }
 
+.generation-error {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  text-align: center;
+}
+
 .auth-submit {
   display: inline-flex;
   align-items: center;
