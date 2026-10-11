@@ -112,20 +112,21 @@ async function generateWithGemini(prompt: string) {
   if (!apiKey) throw new Error('Gemini API key is not configured');
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.9,
-          responseMimeType: 'application/json',
-        },
-      }),
+  const baseUrl = process.env.GEMINI_API_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
+  const response = await fetch(`${baseUrl}/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
-  );
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.9,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
 
   if (!response.ok) throw new Error(`Gemini generation failed: ${response.status}`);
   const payload = await response.json();
