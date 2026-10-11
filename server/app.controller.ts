@@ -80,23 +80,23 @@ Crea una ficha que permita comprender y usar el vocabulario en situaciones reale
 REGLAS DE CONTENIDO:
 - Infere la categoria correcta segun el ejemplo, no solo por la forma de la palabra.
 - Tipos validos: verb, noun, adjective, adverb, expression, phrasalVerb.
-- El meaning debe estar en espanol, ser educativo, explicar el sentido real usado en el ejemplo y mencionar notas de uso o colocaciones utiles.
+- The meaning must be in English, educational, and explain the real sense used in the learner example with helpful usage notes or common collocations.
 - No des definiciones gramaticales genericas como "noun used to name a person, thing, idea, event, or situation".
 - No reutilices un dialogo generico cambiando solo la palabra.
-- Los examples deben ser naturales, en ingles britanico preferiblemente, con traduccion al espanol en la misma cadena usando el formato "English sentence — Traduccion".
+- The examples must be natural, preferably British English, with Spanish translation in the same string using the format "English sentence — Traduccion".
 - Crea 4 examples en al menos 3 contextos distintos.
 - Crea 3 conversaciones originales, cada una con 4 a 6 intervenciones.
 - Cada conversacion debe tener una situacion clara, un proposito y respuestas conectadas entre si.
 - Usa el vocabulario cuando encaje naturalmente, al menos una vez por conversacion. No lo fuerces en todas las lineas.
 - Si el vocabulario tiene varios sentidos comunes, representa los sentidos importantes sin inventar sentidos.
-- Si el ejemplo del usuario es incorrecto, explica brevemente la correccion en meaning y usa contenido corregido en examples/conversations.
+- If the learner example is incorrect, briefly explain the correction in English in the meaning and use corrected content in examples/conversations.
 - No menciones flashcards, tarjetas, prompt, IA, JSON, estudiar vocabulario, ni "the word".
 - Devuelve solo JSON valido, sin Markdown ni texto adicional.
 
 FORMATO EXACTO:
 {
   "type": "verb | noun | adjective | adverb | expression | phrasalVerb",
-  "meaning": "explicacion en espanol con definicion, uso y notas relevantes",
+  "meaning": "English learner-dictionary definition with usage notes and common patterns",
   "examples": ["English example — Traduccion al espanol", "English example — Traduccion al espanol", "English example — Traduccion al espanol", "English example — Traduccion al espanol"],
   "conversations": [
     [{"speaker":"Max","line":"English line — Traduccion al espanol"},{"speaker":"Kity","line":"English line — Traduccion al espanol"},{"speaker":"Max","line":"English line — Traduccion al espanol"},{"speaker":"Kity","line":"English line — Traduccion al espanol"}],

@@ -484,38 +484,9 @@ function normalizeAiType(value, fallback) {
   return aliases[compact] || fallback;
 }
 
-function hasStaleTemplateConversation(conversations) {
-  const stalePatterns = [
-    /new software/i,
-    /create a report/i,
-    /click Generate/i,
-    /pretty\s+\w+/i,
-    /the setup is/i,
-    /explain the app/i,
-  ];
-
-  return conversations.some((conversation) =>
-    conversation.some((line) => stalePatterns.some((pattern) => pattern.test(line.line || ''))),
-  );
-}
-
-function isWeakMeaning(meaning) {
-  return /noun used to name|verb means to perform this action|describes the quality|used as a complete idea|specific thing, idea, event, or situation|action expressed by this phrasal verb/i.test(
-    meaning,
-  );
-}
-
 function validateAiCardData(data) {
-  if (!data.meaning || isWeakMeaning(data.meaning)) {
-    throw new Error('AI generated a weak meaning');
-  }
-
-  if (!data.examples.length || !data.conversations.length) {
+  if (!data.meaning || !data.examples.length || !data.conversations.length) {
     throw new Error('AI generated incomplete card content');
-  }
-
-  if (hasStaleTemplateConversation(data.conversations)) {
-    throw new Error('AI generated a meta or stale template conversation');
   }
 }
 
