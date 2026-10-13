@@ -530,6 +530,27 @@ h1 {
   gap: 10px;
 }
 
+.word-column {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.detected-type {
+  margin: 0;
+  border: 1px solid rgba(31, 111, 90, 0.16);
+  border-radius: 8px;
+  background: rgba(31, 111, 90, 0.07);
+  padding: 10px 12px;
+  color: #52665d;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.detected-type strong {
+  color: #1f6f5a;
+}
+
 .input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -867,6 +888,17 @@ h1 {
   font-weight: 950;
 }
 
+.term-highlight {
+  color: #111a16;
+  font-size: 0.84em;
+  font-weight: 850;
+}
+
+.examples .term-highlight {
+  font-size: 0.82em;
+  font-weight: 850;
+}
+
 .dialogues {
   display: grid;
   gap: 10px;
@@ -887,9 +919,15 @@ h1 {
   line-height: 1.35;
 }
 
-.dialogue strong {
+.dialogue .speaker-label {
   color: #1f6f5a;
   font-weight: 950;
+}
+
+.dialogue .term-highlight {
+  color: #1f6f5a;
+  font-size: 0.84em;
+  font-weight: 850;
 }
 
 .actions {

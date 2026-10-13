@@ -171,14 +171,19 @@ function titleCase(value) {
   return value.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function classifyTerm(term) {
+function classifyTerm(term, context = '') {
   const lower = term.toLowerCase();
+  const contextLower = context.toLowerCase();
   const words = lower.split(' ');
   const secondWord = words[1];
   const knownAdjectives = new Set(['straightforward', 'successful', 'reliable', 'simple', 'clear', 'accurate']);
 
   if (words.length > 1 && phrasalParticles.has(secondWord)) return 'phrasalVerb';
   if (words.length > 2) return 'expression';
+  if (new RegExp(`\\b(is|are|was|were|be|very|so|too|quite|really)\\s+${escapeRegExp(lower)}\\b`).test(contextLower)) {
+    return 'adjective';
+  }
+  if (new RegExp(`\\bto\\s+${escapeRegExp(lower)}\\b`).test(contextLower)) return 'verb';
   if (commonVerbs.has(lower) || lower.endsWith('ize') || lower.endsWith('ate') || lower.endsWith('fy')) {
     return 'verb';
   }
@@ -505,7 +510,7 @@ function conversationExamples(term, type, userExample = '') {
 function buildCard(term, userExample = '') {
   const normalized = normalizeTerm(term);
   const example = normalizeTerm(userExample);
-  const type = classifyTerm(normalized);
+  const type = classifyTerm(normalized, example);
 
   return {
     id: crypto.randomUUID(),
@@ -522,6 +527,33 @@ function buildCard(term, userExample = '') {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
+}
+
+function splitManualExamples(value) {
+  return value
+    .split(/\n+/)
+    .map((line) => normalizeTerm(line.replace(/^\s*[-*\d.)]+\s*/, '')))
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function parseManualConversations(value) {
+  return value
+    .split(/\n\s*\n+/)
+    .map((block) =>
+      block
+        .split(/\n+/)
+        .map((line, index) => {
+          const match = line.match(/^\s*([^:]{1,24}):\s*(.+)$/);
+          if (match) {
+            return { speaker: normalizeTerm(match[1]), line: normalizeTerm(match[2]) };
+          }
+          return { speaker: index % 2 === 0 ? 'A' : 'B', line: normalizeTerm(line) };
+        })
+        .filter((line) => line.line),
+    )
+    .filter((conversation) => conversation.length)
+    .slice(0, 3);
 }
 
 function normalizeAiType(value, fallback) {
@@ -725,7 +757,13 @@ function highlightTerm(example, term) {
   const parts = example.split(new RegExp(`(${escapeRegExp(term)})`, 'ig'));
 
   return parts.map((part, index) =>
-    part.toLowerCase() === term.toLowerCase() ? <strong key={`${part}-${index}`}>{part}</strong> : part,
+    part.toLowerCase() === term.toLowerCase() ? (
+      <strong className="term-highlight" key={`${part}-${index}`}>
+        {part}
+      </strong>
+    ) : (
+      part
+    ),
   );
 }
 
@@ -929,6 +967,8 @@ function App() {
   const [cards, setCards] = useState([]);
   const [term, setTerm] = useState('');
   const [example, setExample] = useState('');
+  const [manualMeaning, setManualMeaning] = useState('');
+  const [manualConversations, setManualConversations] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [deckReady, setDeckReady] = useState(false);
@@ -1115,39 +1155,34 @@ function App() {
   async function addCard(event) {
     event.preventDefault();
     const normalized = normalizeTerm(term);
-    const normalizedExample = normalizeTerm(example);
-    if (!normalized || !normalizedExample || isGenerating) return;
+    const manualExamples = splitManualExamples(example);
+    const normalizedMeaning = normalizeTerm(manualMeaning);
+    const parsedConversations = parseManualConversations(manualConversations);
+    const normalizedExample = manualExamples[0] || '';
+    if (!normalized || !normalizedMeaning || !manualExamples.length || parsedConversations.length < 3) return;
     setGenerationError('');
 
     const exists = cards.some((card) => card.term.toLowerCase() === normalized.toLowerCase());
     if (exists) {
       setTerm('');
       setExample('');
+      setManualMeaning('');
+      setManualConversations('');
       return;
     }
 
     const nextCard = buildCard(normalized, normalizedExample);
-    setIsGenerating(true);
-
-    try {
-      const aiData = await generateAiCardData(nextCard.term, normalizedExample, nextCard.type);
-      nextCard.type = aiData.type || nextCard.type;
-      nextCard.meaning = aiData.meaning || nextCard.meaning;
-      nextCard.examples = aiData.examples.length ? aiData.examples : nextCard.examples;
-      nextCard.conversations = aiData.conversations.length ? aiData.conversations : nextCard.conversations;
-      nextCard.aiGenerated = true;
-    } catch (error) {
-      setGenerationError(
-        'The card was saved with basic English content because AI did not return a clean answer. Try Regenerate again from Admin.',
-      );
-      nextCard.aiGenerated = false;
-    }
+    nextCard.meaning = normalizedMeaning;
+    nextCard.examples = manualExamples;
+    nextCard.conversations = parsedConversations;
+    nextCard.aiGenerated = false;
 
     setCards((current) => [nextCard, ...current]);
     setActiveId(nextCard.id);
     setTerm('');
     setExample('');
-    setIsGenerating(false);
+    setManualMeaning('');
+    setManualConversations('');
     window.setTimeout(() => speakWithCambridge(nextCard.term, 'en-US'), 150);
   }
 
@@ -1302,7 +1337,7 @@ function App() {
                         <div className="dialogue" key={`dialogue-${index}`}>
                           {conversation.map((line) => (
                             <p key={`${line.speaker}-${line.line}`}>
-                              <strong>{line.speaker}:</strong> {highlightTerm(line.line, activeCard.term)}
+                              <strong className="speaker-label">{line.speaker}:</strong> {highlightTerm(line.line, activeCard.term)}
                             </p>
                           ))}
                         </div>
@@ -1537,31 +1572,64 @@ function App() {
 
         <form className="add-form" onSubmit={addCard}>
           <div className="add-fields">
-            <label htmlFor="new-term">
-              Word or expression
-              <input
-                id="new-term"
-                value={term}
-                onChange={(event) => setTerm(event.target.value)}
-                placeholder="try: give up, reliable, deadline..."
-                autoComplete="off"
-              />
-            </label>
-            <label htmlFor="new-example">
-              Your example
+            <div className="word-column">
+              <label htmlFor="new-term">
+                Word or expression
+                <input
+                  id="new-term"
+                  value={term}
+                  onChange={(event) => setTerm(event.target.value)}
+                  placeholder="try: straightforward, catch up, deadline..."
+                  autoComplete="off"
+                />
+              </label>
+              <p className="detected-type">
+                Detected: <strong>{TYPE_LABELS[classifyTerm(term || 'word', splitManualExamples(example)[0] || '')] || 'Vocabulary'}</strong>
+              </p>
+            </div>
+            <label htmlFor="new-meaning">
+              Meaning
               <textarea
-                id="new-example"
-                value={example}
-                onChange={(event) => setExample(event.target.value)}
-                placeholder="Write a sentence where you saw it or want to use it..."
+                id="new-meaning"
+                value={manualMeaning}
+                onChange={(event) => setManualMeaning(event.target.value)}
+                placeholder="Simple and clear definition in English..."
                 rows={3}
               />
             </label>
           </div>
+          <label htmlFor="new-example">
+            Examples
+            <textarea
+              id="new-example"
+              value={example}
+              onChange={(event) => setExample(event.target.value)}
+              placeholder={`Write 1, 2, or 3 examples. One example per line.\nThe problem is straightforward to solve once you see the pattern.`}
+              rows={5}
+            />
+          </label>
+          <label htmlFor="new-conversations">
+            Conversations
+            <textarea
+              id="new-conversations"
+              value={manualConversations}
+              onChange={(event) => setManualConversations(event.target.value)}
+              placeholder={`A: The new process looks confusing.\nB: It is straightforward once you choose the right account.\nA: So I only need to follow these three steps?\nB: Exactly.\n\nA: Can we explain this to the client today?\nB: Yes, keep the answer straightforward and focus on the result.`}
+              rows={9}
+            />
+          </label>
           <div className="input-row add-submit-row">
-            <button type="submit" disabled={isGenerating}>
+            <button
+              type="submit"
+              disabled={
+                !normalizeTerm(term) ||
+                !normalizeTerm(manualMeaning) ||
+                !splitManualExamples(example).length ||
+                parseManualConversations(manualConversations).length < 3
+              }
+            >
               <Plus size={19} />
-              {isGenerating ? 'Generating...' : 'Build card'}
+              Build card
             </button>
           </div>
           {generationError && <p className="auth-error generation-error">{generationError}</p>}
