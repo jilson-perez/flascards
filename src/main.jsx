@@ -556,6 +556,10 @@ function parseManualConversations(value) {
     .slice(0, 3);
 }
 
+function displaySpeaker(index) {
+  return index % 2 === 0 ? 'Ethan' : 'Emma';
+}
+
 function normalizeAiType(value, fallback) {
   const compact = String(value || '')
     .trim()
@@ -1335,9 +1339,12 @@ function App() {
                       <h2>Conversation</h2>
                       {conversations.map((conversation, index) => (
                         <div className="dialogue" key={`dialogue-${index}`}>
-                          {conversation.map((line) => (
+                          {conversation.map((line, lineIndex) => (
                             <p key={`${line.speaker}-${line.line}`}>
-                              <strong className="speaker-label">{line.speaker}:</strong> {highlightTerm(line.line, activeCard.term)}
+                              <strong className={`speaker-label speaker-${lineIndex % 2 === 0 ? 'a' : 'b'}`}>
+                                {displaySpeaker(lineIndex)}:
+                              </strong>{' '}
+                              {highlightTerm(line.line, activeCard.term)}
                             </p>
                           ))}
                         </div>
@@ -1614,7 +1621,7 @@ function App() {
               id="new-conversations"
               value={manualConversations}
               onChange={(event) => setManualConversations(event.target.value)}
-              placeholder={`A: The new process looks confusing.\nB: It is straightforward once you choose the right account.\nA: So I only need to follow these three steps?\nB: Exactly.\n\nA: Can we explain this to the client today?\nB: Yes, keep the answer straightforward and focus on the result.`}
+              placeholder={`Ethan: The new process looks confusing.\nEmma: It is straightforward once you choose the right account.\nEthan: So I only need to follow these three steps?\nEmma: Exactly.\n\nEthan: Can we explain this to the client today?\nEmma: Yes, keep the answer straightforward and focus on the result.`}
               rows={9}
             />
           </label>

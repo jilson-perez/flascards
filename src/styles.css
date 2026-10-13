@@ -920,12 +920,19 @@ h1 {
 }
 
 .dialogue .speaker-label {
-  color: #1f6f5a;
   font-weight: 950;
 }
 
-.dialogue .term-highlight {
+.dialogue .speaker-a {
   color: #1f6f5a;
+}
+
+.dialogue .speaker-b {
+  color: #b7691b;
+}
+
+.dialogue .term-highlight {
+  color: #111a16;
   font-size: 0.84em;
   font-weight: 850;
 }
