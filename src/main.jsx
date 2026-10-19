@@ -30,6 +30,7 @@ const CAMBRIDGE_BASE_URL = '/cambridge';
 const cambridgeAudioCache = new Map();
 const cambridgeEntryCache = new Map();
 let activeAudio = null;
+let activeUtterance = null;
 let pronunciationRequestId = 0;
 
 const TYPE_LABELS = {
@@ -887,37 +888,97 @@ async function fetchCambridgeCandidates(term, locale) {
   return candidates;
 }
 
-function playAudioUrl(url) {
+function playAudioUrl(url, waitForEnd = false) {
   return new Promise((resolve, reject) => {
-    if (activeAudio) {
-      activeAudio.pause();
-      activeAudio = null;
-    }
-
+    if (activeAudio) activeAudio.pause();
     const audio = new Audio(url);
     activeAudio = audio;
     let settled = false;
-    audio.preload = 'auto';
-
-    const rejectIfCurrent = () => {
+    const timeout = window.setTimeout(() => fail(new Error('Audio did not start')), 15000);
+    const finish = () => {
       if (settled) return;
       settled = true;
-      if (activeAudio === audio) activeAudio = null;
-      reject(new Error('Audio failed'));
-    };
-    const resolveIfCurrent = () => {
-      if (settled) return;
-      settled = true;
+      window.clearTimeout(timeout);
       resolve();
     };
-
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      if (activeAudio === audio) activeAudio = null;
+      audio.pause();
+      reject(error);
+    };
+    audio.preload = 'auto';
+    audio.addEventListener('playing', () => {
+      window.clearTimeout(timeout);
+      if (!waitForEnd) finish();
+    }, { once: true });
     audio.addEventListener('ended', () => {
       if (activeAudio === audio) activeAudio = null;
-    });
-    audio.addEventListener('error', rejectIfCurrent, { once: true });
-    audio.addEventListener('playing', resolveIfCurrent, { once: true });
-    audio.addEventListener('canplaythrough', resolveIfCurrent, { once: true });
-    audio.play().catch(rejectIfCurrent);
+      finish();
+    }, { once: true });
+    audio.addEventListener('error', () => fail(new Error('Audio is unavailable')), { once: true });
+    audio.addEventListener('pause', () => {
+      if (!audio.ended) fail(new Error('Audio interrupted'));
+    }, { once: true });
+    audio.play().catch(fail);
+  });
+}
+
+function pronunciationChunks(text) {
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length > 180) {
+    const boundary = remaining.lastIndexOf(' ', 180);
+    const end = boundary > 0 ? boundary : 180;
+    chunks.push(remaining.slice(0, end));
+    remaining = remaining.slice(end).trimStart();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+async function speak(text, locale = 'en-US') {
+  const synth = window.speechSynthesis;
+  if (!synth || !window.SpeechSynthesisUtterance) throw new Error('Browser speech is unavailable');
+  const voices = synth.getVoices();
+  const normalizedLocale = locale.toLowerCase();
+  const preferredVoice =
+    voices.find((voice) => voice.lang.replace('_', '-').toLowerCase() === normalizedLocale) ||
+    voices.find((voice) => /^en[-_]/i.test(voice.lang));
+  if (!preferredVoice) throw new Error('No English browser voice is available');
+
+  return new Promise((resolve, reject) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    // Keep a reference until speech finishes; some browser engines release it early otherwise.
+    activeUtterance = utterance;
+    const startTimeout = window.setTimeout(() => {
+      synth.cancel();
+      finish(new Error('Browser speech did not start'));
+    }, 2500);
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(startTimeout);
+      if (activeUtterance === utterance) activeUtterance = null;
+      if (error) reject(error); else resolve();
+    };
+    utterance.lang = locale;
+    utterance.voice = preferredVoice;
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.onstart = () => window.clearTimeout(startTimeout);
+    utterance.onend = () => finish();
+    utterance.onerror = () => finish(new Error('Browser speech failed'));
+    try {
+      synth.speak(utterance);
+      if (synth.paused) synth.resume();
+    } catch (error) {
+      finish(error);
+    }
   });
 }
 
@@ -929,49 +990,41 @@ async function speakWithCambridge(text, locale = 'en-US') {
     activeAudio = null;
   }
   window.speechSynthesis?.cancel();
+  activeUtterance = null;
   if (!term) return;
 
-  // Dictionary pages for phrases may contain recordings of a different word.
-  // Read the complete expression with the browser's English voice instead.
-  if (/\s/.test(term)) {
-    speak(term, locale);
-    return;
-  }
-
-  const candidates = await fetchCambridgeCandidates(term, locale);
-  for (const url of candidates) {
-    if (requestId !== pronunciationRequestId) return;
-    try {
-      await playAudioUrl(url);
-      return;
-    } catch {
-      // Try the next Cambridge candidate before falling back to browser speech.
+  if (!/\s/.test(term)) {
+    const candidates = await fetchCambridgeCandidates(term, locale);
+    for (const url of candidates) {
+      if (requestId !== pronunciationRequestId) return;
+      try {
+        await playAudioUrl(url);
+        return;
+      } catch {
+        // Try another recording, then read the complete word instead.
+      }
     }
   }
+  if (requestId !== pronunciationRequestId) return;
 
-  if (requestId === pronunciationRequestId) speak(term, locale);
-}
-
-function speak(text, locale = 'en-US') {
-  if (!('speechSynthesis' in window)) return;
-
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio = null;
+  try {
+    await speak(term, locale);
+    return;
+  } catch {
+    if (requestId !== pronunciationRequestId) return;
   }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voices = window.speechSynthesis.getVoices();
-  const preferredVoice =
-    voices.find((voice) => voice.lang === locale && /samantha|alex|daniel|google|microsoft/i.test(voice.name)) ||
-    voices.find((voice) => voice.lang === locale) ||
-    voices.find((voice) => voice.lang.startsWith(locale.slice(0, 2)));
 
-  utterance.lang = locale;
-  utterance.rate = 0.86;
-  utterance.pitch = 1;
-  if (preferredVoice) utterance.voice = preferredVoice;
-  window.speechSynthesis.speak(utterance);
+  // Embedded browsers may have no Web Speech API. Fetch playable English audio
+  // for the entire expression, without ever substituting a dictionary headword.
+  try {
+    for (const chunk of pronunciationChunks(term)) {
+      if (requestId !== pronunciationRequestId) return;
+      const query = new URLSearchParams({ text: chunk, locale });
+      await playAudioUrl(`/api/pronunciation?${query}`, true);
+    }
+  } catch (error) {
+    if (requestId === pronunciationRequestId) throw error;
+  }
 }
 
 function App() {
@@ -994,6 +1047,7 @@ function App() {
   const [manualMeaning, setManualMeaning] = useState('');
   const [manualConversations, setManualConversations] = useState('');
   const [generationError, setGenerationError] = useState('');
+  const [pronunciationError, setPronunciationError] = useState('');
   const [deckReady, setDeckReady] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [isChanging, setIsChanging] = useState(false);
@@ -1138,6 +1192,7 @@ function App() {
 
   useEffect(() => {
     setIsFlipped(false);
+    setPronunciationError('');
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -1328,14 +1383,23 @@ function App() {
     setNotice('Card deleted.');
   }
 
+  async function pronounceCard(card, locale) {
+    setPronunciationError('');
+    try {
+      await speakWithCambridge(card.term, locale);
+    } catch {
+      setPronunciationError('Audio could not be played. Check your connection and try the speaker again.');
+    }
+  }
+
   function renderPronunciationButtons(card) {
     return (
       <div className="pronunciation-buttons" aria-label="Pronunciation options">
-        <button className="icon-button language-button" onClick={() => speakWithCambridge(card.term, 'en-US')} title="US pronunciation">
+        <button className="icon-button language-button" onClick={() => pronounceCard(card, 'en-US')} title="US pronunciation">
           <Volume2 size={19} />
           <span>US</span>
         </button>
-        <button className="icon-button language-button" onClick={() => speakWithCambridge(card.term, 'en-GB')} title="UK pronunciation">
+        <button className="icon-button language-button" onClick={() => pronounceCard(card, 'en-GB')} title="UK pronunciation">
           <Volume2 size={19} />
           <span>UK</span>
         </button>
@@ -1411,6 +1475,7 @@ function App() {
               <FlipHorizontal2 size={18} />
               {isFlipped ? 'Back to word' : 'See meaning'}
             </button>
+            {pronunciationError && <p className="auth-error generation-error" role="alert">{pronunciationError}</p>}
             {generationError && <p className="auth-error generation-error" role="alert">{generationError}</p>}
 
             <div className="actions" aria-label="Difficulty choices">
@@ -1587,7 +1652,7 @@ function App() {
           <p>{auth.name || 'Your account'}</p>
           <button onClick={() => { setAccountOpen(true); setMenuOpen(false); }}><UserRound size={17} />My account</button>
           <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }}><Info size={17} />About</button>
-          <button onClick={logout}><LogOut size={17} />Exit</button>
+          <button onClick={logout}><LogOut size={17} />Log out</button>
         </div>}
       </div>
       {viewMode === 'home' ? renderHome() : viewMode === 'study' ? (

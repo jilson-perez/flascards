@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { StorageService } from './storage.service';
+import { pronunciationAudio } from './pronunciation';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: true });
@@ -13,6 +14,8 @@ async function bootstrap() {
   const host = process.env.HOST || '0.0.0.0';
   const distPath = join(process.cwd(), 'dist');
   const expressApp = app.getHttpAdapter().getInstance();
+
+  expressApp.get('/api/pronunciation', pronunciationAudio);
 
   expressApp.get(/^\/cambridge(\/.*)?$/, async (request, response) => {
     const proxiedPath = request.originalUrl.replace(/^\/cambridge/, '') || '/';
