@@ -4,16 +4,16 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
-  Database,
+  Home,
+  ChevronDown,
+  Pencil,
+  MoreHorizontal,
   FlipHorizontal2,
   Info,
-  Layers3,
   LogOut,
   Mail,
   Plus,
-  RotateCcw,
   Settings2,
-  Shuffle,
   Sparkles,
   Trash2,
   UserRound,
@@ -973,7 +973,6 @@ function App() {
   const [example, setExample] = useState('');
   const [manualMeaning, setManualMeaning] = useState('');
   const [manualConversations, setManualConversations] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [deckReady, setDeckReady] = useState(false);
   const [activeId, setActiveId] = useState(null);
@@ -983,6 +982,66 @@ function App() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [entryInfo, setEntryInfo] = useState(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [selectedAdminId, setSelectedAdminId] = useState(null);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setAboutOpen(false);
+        setAccountOpen(false);
+        setEditorOpen(false);
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, []);
+
+  useEffect(() => {
+    if (!editorOpen && !accountOpen && !aboutOpen) return;
+    const previous = document.activeElement;
+    const dialog = document.querySelector('.editor-dialog, [aria-labelledby="account-title"], [aria-labelledby="about-title"]');
+    const focusable = () => [...dialog.querySelectorAll('button, input, textarea, [tabindex="0"]')].filter((element) => !element.disabled);
+    const elements = focusable();
+    if (editorOpen) dialog.querySelector('input')?.focus();
+    else elements[0]?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function trapTab(event) {
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first?.focus();
+      }
+    }
+    window.addEventListener('keydown', trapTab);
+    return () => {
+      window.removeEventListener('keydown', trapTab);
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [editorOpen, accountOpen, aboutOpen]);
+
+  function openEditor(card = null) {
+    setEditingId(card?.id || null);
+    setTerm(card?.term || '');
+    setManualMeaning(card?.meaning || '');
+    setExample(card?.examples?.join('\n') || '');
+    setManualConversations(card?.conversations?.map((conversation) =>
+      conversation.map((line) => `${line.speaker}: ${line.line}`).join('\n')
+    ).join('\n\n') || '');
+    setGenerationError('');
+    setEditorOpen(true);
+  }
 
   const groupedCards = useMemo(() => {
     return cards.reduce((groups, card) => {
@@ -1154,6 +1213,10 @@ function App() {
     setAuth(null);
     setCards([]);
     setViewMode('home');
+    setMenuOpen(false);
+    setEditorOpen(false);
+    setAccountOpen(false);
+    setSelectedAdminId(null);
   }
 
   async function addCard(event) {
@@ -1163,86 +1226,51 @@ function App() {
     const normalizedMeaning = normalizeTerm(manualMeaning);
     const parsedConversations = parseManualConversations(manualConversations);
     const normalizedExample = manualExamples[0] || '';
-    if (!normalized || !normalizedMeaning || !manualExamples.length || parsedConversations.length < 3) return;
-    setGenerationError('');
-
-    const exists = cards.some((card) => card.term.toLowerCase() === normalized.toLowerCase());
+    if (!normalized || !normalizedMeaning || !manualExamples.length) {
+      setGenerationError('Add a word, a meaning, and at least one example to save your card.');
+      return;
+    }
+    const exists = cards.some((card) => card.id !== editingId && card.term.toLowerCase() === normalized.toLowerCase());
     if (exists) {
-      setTerm('');
-      setExample('');
-      setManualMeaning('');
-      setManualConversations('');
+      setGenerationError('This word already exists. Select its card in Admin to edit it.');
       return;
     }
-
-    const nextCard = buildCard(normalized, normalizedExample);
-    nextCard.meaning = normalizedMeaning;
-    nextCard.examples = manualExamples;
-    nextCard.conversations = parsedConversations;
-    nextCard.aiGenerated = false;
-
-    setCards((current) => [nextCard, ...current]);
-    setActiveId(nextCard.id);
-    setTerm('');
-    setExample('');
-    setManualMeaning('');
-    setManualConversations('');
-    window.setTimeout(() => speakWithCambridge(nextCard.term, 'en-US'), 150);
-  }
-
-  async function regenerateActiveCard() {
-    if (!activeCard || isGenerating) return;
-
-    setIsGenerating(true);
+    const existing = cards.find((card) => card.id === editingId);
+    const nextCard = {
+      ...(existing || buildCard(normalized, normalizedExample)),
+      term: normalized,
+      type: classifyTerm(normalized, normalizedExample),
+      userExample: normalizedExample,
+      meaning: normalizedMeaning,
+      examples: manualExamples,
+      conversations: parsedConversations,
+      aiGenerated: false,
+      updatedAt: Date.now(),
+    };
+    setCards((current) => editingId
+      ? current.map((card) => card.id === editingId ? nextCard : card)
+      : [nextCard, ...current]);
+    setSelectedAdminId(nextCard.id);
+    setSelectedType('all');
+    setEditorOpen(false);
     setGenerationError('');
-    const regeneratedCard = buildCard(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '');
-
-    try {
-      const aiData = await generateAiCardData(activeCard.term, activeCard.userExample || activeCard.examples?.[0] || '', activeCard.type);
-      regeneratedCard.type = aiData.type || regeneratedCard.type;
-      regeneratedCard.meaning = aiData.meaning || regeneratedCard.meaning;
-      regeneratedCard.examples = aiData.examples.length ? aiData.examples : regeneratedCard.examples;
-      regeneratedCard.conversations = aiData.conversations.length ? aiData.conversations : regeneratedCard.conversations;
-      regeneratedCard.aiGenerated = true;
-    } catch {
-      setGenerationError(
-        'AI could not regenerate a clean English version for this card. Try a clearer example from Admin.',
-      );
-      setIsGenerating(false);
-      return;
-    }
-
-    setCards((current) =>
-      current.map((card) =>
-        card.id === activeCard.id
-          ? {
-              ...card,
-              type: regeneratedCard.type,
-              meaning: regeneratedCard.meaning,
-              examples: regeneratedCard.examples,
-              conversations: regeneratedCard.conversations,
-              aiGenerated: regeneratedCard.aiGenerated,
-              updatedAt: Date.now(),
-            }
-          : card,
-      ),
-    );
-    setIsGenerating(false);
-    setIsFlipped(true);
+    setNotice(editingId ? 'Card updated.' : 'Card created.');
   }
 
   function showNext() {
+    if (isChanging) return;
     setIsChanging(true);
     window.setTimeout(() => {
       const candidates = filteredCards.filter((card) => card.id !== activeCard?.id);
       const next = weightedPick(candidates.length ? candidates : filteredCards);
+      setIsFlipped(false);
       setActiveId(next?.id || null);
       setIsChanging(false);
     }, 220);
   }
 
   function markDifficulty(difficulty) {
-    if (!activeCard) return;
+    if (!activeCard || isChanging) return;
 
     setCards((current) =>
       current.map((card) => {
@@ -1267,13 +1295,8 @@ function App() {
     if (!confirmed) return;
 
     setCards((current) => current.filter((card) => card.id !== id));
-    showNext();
-  }
-
-  function resetDeck() {
-    setCards(cloneStarterDeck());
-    setSelectedType('all');
-    setActiveId(null);
+    setSelectedAdminId(null);
+    setNotice('Card deleted.');
   }
 
   function renderPronunciationButtons(card) {
@@ -1301,7 +1324,7 @@ function App() {
       activeCard?.conversations ||
       conversationExamples(activeCard?.term || '', activeCard?.type || 'noun', activeCard?.userExample || '');
     return (
-      <section className={`flashcard ${isChanging ? 'leaving' : 'entering'}`} aria-live="polite">
+      <section className={`flashcard tone-${activeCard?.type || 'noun'} ${isChanging ? 'leaving' : 'entering'}`} aria-live="polite">
         {activeCard ? (
           <>
             <div className={`flip-surface ${isFlipped ? 'is-flipped' : ''}`}>
@@ -1335,7 +1358,7 @@ function App() {
                       ))}
                     </div>
 
-                    <div className="dialogues">
+                    {conversations.length > 0 && <div className="dialogues">
                       <h2>Conversation</h2>
                       {conversations.map((conversation, index) => (
                         <div className="dialogue" key={`dialogue-${index}`}>
@@ -1349,7 +1372,7 @@ function App() {
                           ))}
                         </div>
                       ))}
-                    </div>
+                    </div>}
                   </div>
                 </div>
               )}
@@ -1359,37 +1382,24 @@ function App() {
               <FlipHorizontal2 size={18} />
               {isFlipped ? 'Back to word' : 'See meaning'}
             </button>
-            {generationError && <p className="auth-error generation-error">{generationError}</p>}
+            {generationError && <p className="auth-error generation-error" role="alert">{generationError}</p>}
 
             <div className="actions" aria-label="Difficulty choices">
-              <button className="easy" onClick={() => markDifficulty('easy')}>
+              <button className="easy" disabled={isChanging} onClick={() => markDifficulty('easy')}>
                 <CheckCircle2 size={19} />
                 Got it
               </button>
-              <button className="medium" onClick={() => markDifficulty('medium')}>
+              <button className="medium" disabled={isChanging} onClick={() => markDifficulty('medium')}>
                 <Brain size={19} />
                 Almost
               </button>
-              <button className="hard" onClick={() => markDifficulty('hard')}>
+              <button className="hard" disabled={isChanging} onClick={() => markDifficulty('hard')}>
                 <Sparkles size={19} />
                 Again
               </button>
             </div>
 
-            <div className="card-footer">
-              <button onClick={showNext}>
-                <Shuffle size={18} />
-                Random card
-              </button>
-              <button onClick={regenerateActiveCard} disabled={isGenerating}>
-                <Sparkles size={18} />
-                {isGenerating ? 'Generating' : 'Regenerate'}
-              </button>
-              <button onClick={() => removeCard(activeCard.id)}>
-                <Trash2 size={18} />
-                Delete
-              </button>
-            </div>
+
           </>
         ) : (
           <div className="empty-state">
@@ -1414,7 +1424,7 @@ function App() {
         </div>
 
         <div className="home-actions">
-          <button className="home-card primary" onClick={() => setViewMode('study')}>
+          <button className="home-card primary" onClick={() => { setSelectedType('all'); setViewMode('study'); setIsFlipped(false); }}>
             <BookOpen size={24} />
             <span>
               <strong>Study</strong>
@@ -1457,6 +1467,7 @@ function App() {
       <main className="auth-shell">
         <section className="auth-panel">
           <div className="auth-copy">
+            <span className="auth-brand" aria-label="Jilson">J</span>
             <p className="eyebrow">English study deck</p>
             <h1>Your vocabulary, one account</h1>
             <p>
@@ -1535,48 +1546,57 @@ function App() {
 
   return (
     <main className={`app-shell ${viewMode === 'study' ? 'study-only' : ''} ${viewMode === 'home' ? 'home-mode' : 'admin-mode'}`}>
+      <a className="brand-mark" href="#" aria-label="English Flashcards home" onClick={(event) => { event.preventDefault(); setViewMode('home'); }}>J</a>
       <nav className="mode-switch" aria-label="App mode">
-        <button className={viewMode === 'home' ? 'active' : ''} onClick={() => setViewMode('home')}>
-          <Sparkles size={17} />
-          Home
-        </button>
-        <button className={viewMode === 'study' ? 'active' : ''} onClick={() => setViewMode('study')}>
-          <BookOpen size={17} />
-          Study
-        </button>
-        <button className={viewMode === 'admin' ? 'active' : ''} onClick={() => setViewMode('admin')}>
-          <Settings2 size={17} />
-          Admin
-        </button>
-        <button onClick={logout} title="Log out">
-          <LogOut size={17} />
-          Exit
-        </button>
+        <button aria-label="Home" title="Home" className={viewMode === 'home' ? 'active' : ''} onClick={() => setViewMode('home')}><Home size={19} /></button>
+        <button className={viewMode === 'study' ? 'active' : ''} onClick={() => { setSelectedType('all'); setViewMode('study'); setIsFlipped(false); }}><BookOpen size={17} />Study</button>
+        <button className={viewMode === 'admin' ? 'active' : ''} onClick={() => setViewMode('admin')}><Settings2 size={17} />Admin</button>
       </nav>
-
-      <button className="about-fab" type="button" onClick={() => setAboutOpen(true)} title="About">
-        <Info size={17} />
-        <span>About</span>
-      </button>
-
-      {viewMode === 'home' ? (
-        renderHome()
-      ) : viewMode === 'study' ? (
-        <section className="focus-stage">{renderFlashcard()}</section>
+      {menuOpen && <button className="menu-dismiss" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+      <div className="account-menu">
+        <button className="account-trigger" aria-label="Account menu" aria-expanded={menuOpen} aria-controls="account-dropdown" onClick={() => setMenuOpen(!menuOpen)}><UserRound size={19} /><ChevronDown size={14} /></button>
+        {menuOpen && <div className="account-dropdown" id="account-dropdown">
+          <p>{auth.name || 'Your account'}</p>
+          <button onClick={() => { setAccountOpen(true); setMenuOpen(false); }}><UserRound size={17} />My account</button>
+          <button onClick={() => { setAboutOpen(true); setMenuOpen(false); }}><Info size={17} />About</button>
+          <button onClick={logout}><LogOut size={17} />Exit</button>
+        </div>}
+      </div>
+      {viewMode === 'home' ? renderHome() : viewMode === 'study' ? (
+        <section className="focus-stage">
+          <div className="study-heading"><div><p className="eyebrow">A little practice, every day</p><h1>Your next word</h1></div><span>{cards.length} cards · Random review</span></div>
+          {renderFlashcard()}
+        </section>
       ) : (
-        <>
-      <section className="study-panel">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">English study deck</p>
-            <h1>Flashcards that learn with you</h1>
+        <section className="admin-collection">
+          <header className="collection-header">
+            <div><p className="eyebrow">Make every word yours</p><h1>Your vocabulary</h1><p>{cards.length} cards in your collection</p></div>
+            <button className="new-card-button" onClick={() => openEditor()}><Plus size={20} />New card</button>
+          </header>
+          <div className="collection-stats"><span><i className="dot hard" />{stats.hard} Again</span><span><i className="dot medium" />{stats.medium} Almost</span><span><i className="dot easy" />{stats.easy} Got it</span></div>
+          <div className="filters" aria-label="Card filters">
+            <button className={selectedType === 'all' ? 'active' : ''} onClick={() => setSelectedType('all')}>All <small>{cards.length}</small></button>
+            {Object.entries(TYPE_LABELS).map(([type, label]) => <button key={type} className={selectedType === type ? 'active' : ''} onClick={() => setSelectedType(type)}>{label} <small>{groupedCards[type]?.length || 0}</small></button>)}
           </div>
-          <div className="storage-pill" title="Frontend-only storage">
-            <Database size={18} />
-            Local NoSQL
+          <p className="collection-notice" role="status">{notice || 'Select a card to edit or delete it.'}</p>
+          <div className="vocabulary-grid">
+            {filteredCards.map((card) => (
+              <article key={card.id} className={`vocabulary-card tone-${card.type} ${selectedAdminId === card.id ? 'selected' : ''}`}>
+                <button className="card-select" aria-expanded={selectedAdminId === card.id} onClick={() => setSelectedAdminId(selectedAdminId === card.id ? null : card.id)}>
+                  <span className="tile-top"><span>{TYPE_LABELS[card.type]}</span><MoreHorizontal size={20} /></span>
+                  <strong>{card.term}</strong><span className="tile-meaning">{card.meaning}</span>
+                  <span className="tile-bottom">{DIFFICULTY[card.difficulty].label}<span>{card.reviews} reviews</span></span>
+                </button>
+                {selectedAdminId === card.id && <div className="tile-actions"><button onClick={() => openEditor(card)}><Pencil size={16} />Edit</button><button onClick={() => removeCard(card.id)}><Trash2 size={16} />Delete</button></div>}
+              </article>
+            ))}
           </div>
-        </header>
-
+          {!filteredCards.length && <div className="collection-empty"><BookOpen size={32} /><h2>No cards here yet</h2><p>Use New card to add a word to your collection.</p></div>}
+        </section>
+      )}
+      {editorOpen && <div className="about-overlay editor-overlay" onClick={(event) => { if (event.target === event.currentTarget) setEditorOpen(false); }}>
+        <section className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+          <header><div><p className="eyebrow">Your vocabulary</p><h2 id="editor-title">{editingId ? 'Edit card' : 'New card'}</h2></div><button className="icon-button" aria-label="Close editor" onClick={() => setEditorOpen(false)}><X size={20} /></button></header>
         <form className="add-form" onSubmit={addCard}>
           <div className="add-fields">
             <div className="word-column">
@@ -1588,6 +1608,8 @@ function App() {
                   onChange={(event) => setTerm(event.target.value)}
                   placeholder="try: straightforward, catch up, deadline..."
                   autoComplete="off"
+                  autoFocus
+                  required
                 />
               </label>
               <p className="detected-type">
@@ -1598,6 +1620,7 @@ function App() {
               Meaning
               <textarea
                 id="new-meaning"
+                required
                 value={manualMeaning}
                 onChange={(event) => setManualMeaning(event.target.value)}
                 placeholder="Simple and clear definition in English..."
@@ -1609,6 +1632,7 @@ function App() {
             Examples
             <textarea
               id="new-example"
+              required
               value={example}
               onChange={(event) => setExample(event.target.value)}
               placeholder={`Write 1, 2, or 3 examples. One example per line.\nThe problem is straightforward to solve once you see the pattern.`}
@@ -1616,7 +1640,7 @@ function App() {
             />
           </label>
           <label htmlFor="new-conversations">
-            Conversations
+            Conversations (optional)
             <textarea
               id="new-conversations"
               value={manualConversations}
@@ -1625,105 +1649,27 @@ function App() {
               rows={9}
             />
           </label>
+          <p className="form-hint">Add at least one example. For conversations, separate each dialogue with a blank line.</p>
           <div className="input-row add-submit-row">
+            <button type="button" className="secondary-button" onClick={() => setEditorOpen(false)}>Cancel</button>
             <button
               type="submit"
-              disabled={
-                !normalizeTerm(term) ||
-                !normalizeTerm(manualMeaning) ||
-                !splitManualExamples(example).length ||
-                parseManualConversations(manualConversations).length < 3
-              }
+
             >
               <Plus size={19} />
-              Build card
+              {editingId ? 'Save changes' : 'Build card'}
             </button>
           </div>
-          {generationError && <p className="auth-error generation-error">{generationError}</p>}
+          {generationError && <p className="auth-error generation-error" role="alert">{generationError}</p>}
         </form>
 
-        <div className="filters" aria-label="Card filters">
-          <button className={selectedType === 'all' ? 'active' : ''} onClick={() => setSelectedType('all')}>
-            All
-          </button>
-          {Object.entries(TYPE_LABELS).map(([type, label]) => (
-            <button
-              key={type}
-              className={selectedType === type ? 'active' : ''}
-              onClick={() => setSelectedType(type)}
-              disabled={!groupedCards[type]}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {renderFlashcard()}
-      </section>
-
-      <aside className="deck-panel">
-        <div className="metric-grid">
-          <div>
-            <span>{cards.length}</span>
-            Cards
-          </div>
-          <div>
-            <span>{stats.hard}</span>
-            Again
-          </div>
-          <div>
-            <span>{stats.medium}</span>
-            Almost
-          </div>
-          <div>
-            <span>{stats.easy}</span>
-            Got it
-          </div>
-        </div>
-
-        <section className="group-list">
-          <div className="section-title">
-            <Layers3 size={18} />
-            Groups
-          </div>
-          {Object.entries(TYPE_LABELS).map(([type, label]) => (
-            <button key={type} onClick={() => setSelectedType(type)} disabled={!groupedCards[type]}>
-              <span>{label}</span>
-              <strong>{groupedCards[type]?.length || 0}</strong>
-            </button>
-          ))}
         </section>
-
-        <section className="deck-list">
-          <div className="section-title">
-            <BookOpen size={18} />
-            My words
-          </div>
-          {cards.map((card) => (
-            <button key={card.id} className={card.id === activeCard?.id ? 'selected' : ''} onClick={() => setActiveId(card.id)}>
-              <span>
-                <strong>{card.term}</strong>
-                <small>{TYPE_LABELS[card.type]} · {DIFFICULTY[card.difficulty].label}</small>
-              </span>
-              <Volume2 size={16} onClick={(event) => {
-                event.stopPropagation();
-                speakWithCambridge(card.term, 'en-US');
-              }} />
-            </button>
-          ))}
-        </section>
-
-        <button className="reset-button" onClick={resetDeck}>
-          <RotateCcw size={18} />
-          Reset sample deck
-        </button>
-      </aside>
-        </>
-      )}
+      </div>}
+      {accountOpen && <div className="about-overlay"><section className="about-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="about-close" aria-label="Close account" onClick={() => setAccountOpen(false)}><X size={17} /></button><p className="about-kicker">My account</p><h2 id="account-title">{auth.name} {auth.lastName}</h2><p>{auth.email}</p><p>{cards.length} vocabulary cards</p></section></div>}
 
       {aboutOpen && (
         <div className="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
-          <section className="about-card">
+          <section className="about-card" aria-labelledby="about-title">
             <button className="about-close" type="button" onClick={() => setAboutOpen(false)} aria-label="Close About">
               <X size={17} />
             </button>

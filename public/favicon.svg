@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Jilson Perez">
-  <rect width="64" height="64" rx="16" fill="#9d5e32"/>
-  <path d="M25 18h22M39 18v27c0 8-6 13-14 13-6 0-11-3-13-8" fill="none" stroke="#fff8ed" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="white"/><path d="M25 8h25v32c0 12-6 18-17 18-11 0-18-6-18-17h11c0 6 2 8 7 8s6-3 6-9V18H25z" fill="#997451"/></svg>
