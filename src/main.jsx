@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BookOpen,
@@ -735,7 +735,8 @@ function saveCards(cards, email) {
 
 async function loadCardsFromApi(email) {
   const payload = await apiRequest(`/api/deck/${encodeURIComponent(email)}`);
-  return Array.isArray(payload.cards) ? payload.cards : [];
+  if (!Array.isArray(payload.cards)) throw new Error('Invalid deck response');
+  return payload.cards;
 }
 
 async function saveCardsToApi(cards, email) {
@@ -978,6 +979,7 @@ function App() {
   const [auth, setAuth] = useState(activeSession);
   const [authMode, setAuthMode] = useState('login');
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
   const [authForm, setAuthForm] = useState({
     name: '',
     lastName: '',
@@ -986,6 +988,7 @@ function App() {
     remember: rememberedAuth.remember !== false,
   });
   const [cards, setCards] = useState([]);
+  const persistedDeck = useRef({ email: null, cards: null, remoteLoaded: false });
   const [term, setTerm] = useState('');
   const [example, setExample] = useState('');
   const [manualMeaning, setManualMeaning] = useState('');
@@ -1087,16 +1090,20 @@ function App() {
   }, [cards]);
 
   useEffect(() => {
-    if (!deckReady) return;
-    saveCards(cards, auth?.email);
-    if (!auth?.email) return;
-    saveCardsToApi(cards, auth.email).catch(() => {});
+    // Loading or switching accounts must never write a deck back to storage.
+    if (!deckReady || !auth?.email || persistedDeck.current.email !== auth.email) return;
+    if (persistedDeck.current.cards === cards) return;
+    saveCards(cards, auth.email);
+    const remoteLoaded = persistedDeck.current.remoteLoaded;
+    persistedDeck.current = { email: auth.email, cards, remoteLoaded };
+    if (remoteLoaded) saveCardsToApi(cards, auth.email).catch(() => {});
   }, [cards, auth?.email, deckReady]);
 
   useEffect(() => {
     let isCurrent = true;
     setDeckReady(false);
     const localCards = loadCards(auth?.email);
+    persistedDeck.current = { email: auth?.email, cards: localCards, remoteLoaded: false };
     setCards(localCards);
     setActiveId(null);
     setSelectedType('all');
@@ -1105,7 +1112,10 @@ function App() {
     if (auth?.email) {
       loadCardsFromApi(auth.email)
         .then((remoteCards) => {
-          if (isCurrent) setCards(remoteCards);
+          if (isCurrent) {
+            persistedDeck.current = { email: auth.email, cards: remoteCards, remoteLoaded: true };
+            setCards(remoteCards);
+          }
         })
         .catch(() => {
           if (isCurrent) setCards(localCards);
@@ -1152,6 +1162,7 @@ function App() {
   async function submitAuth(event) {
     event.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
 
     const email = authForm.email.trim().toLowerCase();
     const password = authForm.password.trim();
@@ -1195,8 +1206,9 @@ function App() {
       }
 
       saveAccounts({ ...accounts, [email]: account });
-      saveSession(account, authForm.remember);
-      setAuth(account);
+      setAuthForm((current) => ({ ...current, email, password: '', name: '', lastName: '' }));
+      setAuthMode('login');
+      setAuthSuccess('Your account is ready. Log in to continue.');
       return;
     }
 
@@ -1483,25 +1495,12 @@ function App() {
     return (
       <main className="auth-shell">
         <section className="auth-panel">
-          <div className="auth-copy">
+          <header className="auth-copy">
             <span className="auth-brand" aria-label="Jilson">J</span>
-            <p className="eyebrow">English study deck</p>
-            <h1>Your vocabulary, one account</h1>
-            <p>
-              Create a simple profile so your deck is separated by email. Real cross-device sync is ready for a backend or cloud adapter.
-            </p>
-          </div>
+            <h1>English Flashcards</h1>
+          </header>
 
           <form className="auth-form" onSubmit={submitAuth}>
-            <div className="auth-tabs" role="tablist" aria-label="Account mode">
-              <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
-                Log in
-              </button>
-              <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>
-                Register
-              </button>
-            </div>
-
             {authMode === 'register' && (
               <div className="auth-grid">
                 <label>
@@ -1550,19 +1549,28 @@ function App() {
               Remember my password on this device
             </label>
 
-            {authError && <p className="auth-error">{authError}</p>}
+            {authError && <p className="auth-error" role="alert">{authError}</p>}
+            {authSuccess && <p className="auth-success" role="status">{authSuccess}</p>}
 
             <button className="auth-submit" type="submit">
-              <UserRound size={18} />
-              {authMode === 'register' ? 'Create account' : 'Enter app'}
+              {authMode === 'register' ? 'Create account' : 'Log in'}
             </button>
           </form>
+          <p className="auth-switch">
+            {authMode === 'register' ? 'Already have an account? ' : "Don’t have an account? "}
+            <button type="button" onClick={() => {
+              setAuthMode(authMode === 'register' ? 'login' : 'register');
+              setAuthError('');
+              setAuthSuccess('');
+            }}>{authMode === 'register' ? 'Log in' : 'Register'}</button>
+          </p>
         </section>
       </main>
     );
   }
 
   if (!auth) return renderAuth();
+  if (!deckReady) return <main className="auth-shell"><p role="status">Loading your vocabulary…</p></main>;
 
   return (
     <main className={`app-shell ${viewMode === 'study' ? 'study-only' : ''} ${viewMode === 'home' ? 'home-mode' : 'admin-mode'}`}>

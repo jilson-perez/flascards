@@ -1596,3 +1596,54 @@ a:focus-visible {
 
 .home-stats div { color: var(--text-secondary); font-weight: 600; }
 .home-stats span { color: var(--ink); font-weight: 700; }
+
+
+/* One focused sign-in form, shared with registration. */
+.auth-shell { padding: 32px 18px; }
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: min(420px, 100%);
+  padding: 38px 32px 30px;
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgba(var(--ink-rgb), .07);
+}
+.auth-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.auth-brand { margin: 0; width: 62px; height: 62px; font-size: 56px; }
+.auth-copy h1 {
+  margin: 0;
+  font-size: 29px;
+  line-height: 1.2;
+  letter-spacing: -.04em;
+}
+.auth-form { padding: 0; gap: 18px; border: 0; border-radius: 0; }
+.auth-form label { font-size: 13px; font-weight: 550; }
+.auth-form input { min-height: 47px; border-color: var(--border); border-radius: 12px; font-weight: 400; }
+.auth-form .remember-row { font-size: 12px; font-weight: 400; gap: 8px !important; }
+.remember-row input { min-height: 0; margin: 0; }
+.auth-submit { min-height: 47px; border-radius: 12px; font-weight: 600; }
+.auth-switch { margin: 0; text-align: center; font-size: 13px; color: var(--text-secondary); }
+.auth-switch button {
+  border: 0;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-success { margin: 0; padding: 12px; border-radius: 12px; background: var(--surface-muted); color: var(--ink); font-size: 13px; line-height: 1.5; }
+@media (max-width: 620px) {
+  .auth-shell { padding: 24px 16px; }
+  .auth-panel { padding: 30px 24px; }
+  .auth-copy h1 { font-size: 27px; }
+  .auth-grid { grid-template-columns: 1fr; }
+}

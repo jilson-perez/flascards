@@ -401,7 +401,6 @@ export class AppController {
     };
 
     await this.storage.saveAccount(account);
-    await this.storage.saveDeck(normalizedEmail, []);
 
     return { account: publicAccount(account) };
   }
@@ -426,8 +425,10 @@ export class AppController {
 
   @Put('deck/:email')
   async saveDeck(@Param('email') email: string, @Body() body: DeckBody) {
-    const cards = Array.isArray(body.cards) ? body.cards : [];
-    await this.storage.saveDeck(email, cards);
+    if (!Array.isArray(body.cards)) {
+      throw new BadRequestException('Cards must be an array.');
+    }
+    await this.storage.saveDeck(email, body.cards);
     return { ok: true };
   }
 
