@@ -11,7 +11,7 @@ import {
   FlipHorizontal2,
   Info,
   LogOut,
-  Mail,
+  LockKeyhole,
   Plus,
   Settings2,
   Sparkles,
@@ -30,6 +30,7 @@ const CAMBRIDGE_BASE_URL = '/cambridge';
 const cambridgeAudioCache = new Map();
 const cambridgeEntryCache = new Map();
 let activeAudio = null;
+let pronunciationRequestId = 0;
 
 const TYPE_LABELS = {
   verb: 'Verb',
@@ -920,9 +921,25 @@ function playAudioUrl(url) {
 }
 
 async function speakWithCambridge(text, locale = 'en-US') {
-  const candidates = await fetchCambridgeCandidates(text, locale);
+  const term = text.trim().replace(/\s+/g, ' ');
+  const requestId = ++pronunciationRequestId;
+  if (activeAudio) {
+    activeAudio.pause();
+    activeAudio = null;
+  }
+  window.speechSynthesis?.cancel();
+  if (!term) return;
 
+  // Dictionary pages for phrases may contain recordings of a different word.
+  // Read the complete expression with the browser's English voice instead.
+  if (/\s/.test(term)) {
+    speak(term, locale);
+    return;
+  }
+
+  const candidates = await fetchCambridgeCandidates(term, locale);
   for (const url of candidates) {
+    if (requestId !== pronunciationRequestId) return;
     try {
       await playAudioUrl(url);
       return;
@@ -931,7 +948,7 @@ async function speakWithCambridge(text, locale = 'en-US') {
     }
   }
 
-  speak(text, locale);
+  if (requestId === pronunciationRequestId) speak(term, locale);
 }
 
 function speak(text, locale = 'en-US') {
@@ -1501,7 +1518,7 @@ function App() {
             <label>
               Email
               <div className="auth-input">
-                <Mail size={18} />
+                <UserRound size={18} aria-hidden="true" />
                 <input
                   type="email"
                   value={authForm.email}
@@ -1513,12 +1530,15 @@ function App() {
 
             <label>
               Password
-              <input
-                type="password"
-                value={authForm.password}
-                onChange={(event) => updateAuthForm('password', event.target.value)}
-                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
-              />
+              <div className="auth-input">
+                <LockKeyhole size={18} aria-hidden="true" />
+                <input
+                  type="password"
+                  value={authForm.password}
+                  onChange={(event) => updateAuthForm('password', event.target.value)}
+                  autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                />
+              </div>
             </label>
 
             <label className="remember-row">

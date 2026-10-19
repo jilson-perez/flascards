@@ -413,7 +413,7 @@ button:disabled {
   order: 1;
   border: 1px solid rgba(var(--ink-rgb), 0.08);
   border-radius: 8px;
-  background: rgba(var(--ink-rgb), 0.62);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -1439,6 +1439,15 @@ h1, h2 { letter-spacing: -.045em; font-weight: 650; }
   --surface-muted: #f1e7da;
   --border: #e4d8c9;
   --focus-ring: #ac8562;
+  --review-easy: #3f6e51;
+  --review-easy-bg: #e7efe4;
+  --review-easy-hover: #d8e6d4;
+  --review-medium: #995622;
+  --review-medium-bg: #f8e9d5;
+  --review-medium-hover: #f1ddbf;
+  --review-hard: #a34c40;
+  --review-hard-bg: #f5e3dd;
+  --review-hard-hover: #edd0c7;
   accent-color: var(--accent);
   color: var(--ink);
   background: var(--canvas);
@@ -1538,19 +1547,35 @@ a:focus-visible {
 .home-card,
 .home-card:hover { border-color: var(--border); }
 
-.dot.hard { background: var(--accent); }
-.dot.medium { background: var(--logo); }
-.dot.easy { background: #c5ad91; }
+.dot.hard { background: var(--review-hard); }
+.dot.medium { background: var(--review-medium); }
+.dot.easy { background: var(--review-easy); }
 
-.actions .easy,
-.actions .medium,
-.actions .hard {
-  color: var(--accent);
-  background: var(--surface-muted);
+.actions .easy {
+  --review-ink: var(--review-easy);
+  --review-bg: var(--review-easy-bg);
+  --review-hover: var(--review-easy-hover);
 }
-
-.actions button:hover {
-  background: var(--border);
+.actions .medium {
+  --review-ink: var(--review-medium);
+  --review-bg: var(--review-medium-bg);
+  --review-hover: var(--review-medium-hover);
+}
+.actions .hard {
+  --review-ink: var(--review-hard);
+  --review-bg: var(--review-hard-bg);
+  --review-hover: var(--review-hard-hover);
+}
+.actions button.easy,
+.actions button.medium,
+.actions button.hard {
+  color: var(--review-ink);
+  background: var(--review-bg);
+}
+.actions button.easy:hover,
+.actions button.medium:hover,
+.actions button.hard:hover {
+  background: var(--review-hover);
   box-shadow: 0 7px 15px rgba(var(--ink-rgb), .08);
 }
 
@@ -1559,3 +1584,15 @@ a:focus-visible {
   background: var(--surface-muted);
   border: 1px solid var(--border);
 }
+
+
+.auth-input { position: relative; }
+.auth-input svg {
+  position: absolute;
+  left: 14px;
+  pointer-events: none;
+}
+.auth-input input { padding-left: 43px; }
+
+.home-stats div { color: var(--text-secondary); font-weight: 600; }
+.home-stats span { color: var(--ink); font-weight: 700; }
