@@ -1647,3 +1647,12 @@ a:focus-visible {
   .auth-copy h1 { font-size: 27px; }
   .auth-grid { grid-template-columns: 1fr; }
 }
+
+/* Incremental collection rendering and card editor feedback. */
+.collection-load-more { padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.editor-feedback { position: sticky; top: 0; z-index: 1; margin: 0; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+.editor-feedback.success { color: #166534; background: #dcfce7; border: 1px solid #86efac; }
+.editor-feedback.error { color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; }
+.editor-dialog label.detected-type { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+.editor-dialog .detected-type select { flex: 1; min-width: 0; border: 1px solid var(--surface-muted); border-radius: 7px; padding: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+.editor-dialog select:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }

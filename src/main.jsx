@@ -33,6 +33,8 @@ let activeAudio = null;
 let activeUtterance = null;
 let pronunciationRequestId = 0;
 
+const ADMIN_PAGE_SIZE = 20;
+
 const TYPE_LABELS = {
   verb: 'Verb',
   noun: 'Noun',
@@ -1062,6 +1064,19 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [selectedAdminId, setSelectedAdminId] = useState(null);
   const [notice, setNotice] = useState('');
+  const [editorType, setEditorType] = useState('');
+  const [editorFeedback, setEditorFeedback] = useState(null);
+  const [adminPage, setAdminPage] = useState({ type: 'all', limit: ADMIN_PAGE_SIZE });
+  const loadMoreRef = useRef(null);
+  const editorFeedbackTimer = useRef(null);
+
+  function showEditorFeedback(kind, message) {
+    window.clearTimeout(editorFeedbackTimer.current);
+    setEditorFeedback({ kind, message });
+    editorFeedbackTimer.current = window.setTimeout(() => setEditorFeedback(null), 2000);
+  }
+
+  useEffect(() => () => window.clearTimeout(editorFeedbackTimer.current), []);
 
   useEffect(() => {
     function closeOnEscape(event) {
@@ -1080,7 +1095,7 @@ function App() {
     if (!editorOpen && !accountOpen && !aboutOpen) return;
     const previous = document.activeElement;
     const dialog = document.querySelector('.editor-dialog, [aria-labelledby="account-title"], [aria-labelledby="about-title"]');
-    const focusable = () => [...dialog.querySelectorAll('button, input, textarea, [tabindex="0"]')].filter((element) => !element.disabled);
+    const focusable = () => [...dialog.querySelectorAll('button, input, textarea, select, [tabindex="0"]')].filter((element) => !element.disabled);
     const elements = focusable();
     if (editorOpen) dialog.querySelector('input')?.focus();
     else elements[0]?.focus();
@@ -1106,6 +1121,9 @@ function App() {
   }, [editorOpen, accountOpen, aboutOpen]);
 
   function openEditor(card = null) {
+    window.clearTimeout(editorFeedbackTimer.current);
+    setEditorFeedback(null);
+    setEditorType(card?.type || '');
     setEditingId(card?.id || null);
     setTerm(card?.term || '');
     setManualMeaning(card?.meaning || '');
@@ -1129,6 +1147,29 @@ function App() {
     return selectedType === 'all' ? cards : cards.filter((card) => card.type === selectedType);
   }, [cards, selectedType]);
 
+  const visibleLimit = adminPage.type === selectedType ? adminPage.limit : ADMIN_PAGE_SIZE;
+  const visibleAdminCards = filteredCards.slice(0, visibleLimit);
+  const hasMoreAdminCards = visibleLimit < filteredCards.length;
+  const detectedEditorType = classifyTerm(term || 'word', splitManualExamples(example)[0] || '');
+
+  useEffect(() => {
+    setAdminPage({ type: selectedType, limit: ADMIN_PAGE_SIZE });
+  }, [selectedType, viewMode, auth?.email]);
+
+  useEffect(() => {
+    if (viewMode !== 'admin' || editorOpen || !hasMoreAdminCards || !loadMoreRef.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      setAdminPage((current) => ({
+        type: selectedType,
+        limit: (current.type === selectedType ? current.limit : ADMIN_PAGE_SIZE) + ADMIN_PAGE_SIZE,
+      }));
+    }, { rootMargin: '0px 0px 200px 0px' });
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [viewMode, editorOpen, selectedType, visibleLimit, hasMoreAdminCards]);
+
   const activeCard = useMemo(() => {
     return filteredCards.find((card) => card.id === activeId) || weightedPick(filteredCards);
   }, [activeId, filteredCards]);
@@ -1150,7 +1191,9 @@ function App() {
     saveCards(cards, auth.email);
     const remoteLoaded = persistedDeck.current.remoteLoaded;
     persistedDeck.current = { email: auth.email, cards, remoteLoaded };
-    if (remoteLoaded) saveCardsToApi(cards, auth.email).catch(() => {});
+    if (remoteLoaded) saveCardsToApi(cards, auth.email).catch(() => {
+      showEditorFeedback('error', 'Unable to sync your card. Please try again later.');
+    });
   }, [cards, auth?.email, deckReady]);
 
   useEffect(() => {
@@ -1311,19 +1354,19 @@ function App() {
     const parsedConversations = parseManualConversations(manualConversations);
     const normalizedExample = manualExamples[0] || '';
     if (!normalized || !normalizedMeaning || !manualExamples.length) {
-      setGenerationError('Add a word, a meaning, and at least one example to save your card.');
+      showEditorFeedback('error', 'Add a word, a meaning, and at least one example to save your card.');
       return;
     }
     const exists = cards.some((card) => card.id !== editingId && card.term.toLowerCase() === normalized.toLowerCase());
     if (exists) {
-      setGenerationError('This word already exists. Select its card in Admin to edit it.');
+      showEditorFeedback('error', 'This word already exists. Select its card in Admin to edit it.');
       return;
     }
     const existing = cards.find((card) => card.id === editingId);
     const nextCard = {
       ...(existing || buildCard(normalized, normalizedExample)),
       term: normalized,
-      type: classifyTerm(normalized, normalizedExample),
+      type: editorType || classifyTerm(normalized, normalizedExample),
       userExample: normalizedExample,
       meaning: normalizedMeaning,
       examples: manualExamples,
@@ -1336,9 +1379,19 @@ function App() {
       : [nextCard, ...current]);
     setSelectedAdminId(nextCard.id);
     setSelectedType('all');
-    setEditorOpen(false);
     setGenerationError('');
     setNotice(editingId ? 'Card updated.' : 'Card created.');
+    if (editingId) {
+      setEditorOpen(false);
+    } else {
+      setTerm('');
+      setManualMeaning('');
+      setExample('');
+      setManualConversations('');
+      setEditorType('');
+      showEditorFeedback('success', 'Card created successfully.');
+      document.getElementById('new-term')?.focus();
+    }
   }
 
   function showNext() {
@@ -1673,7 +1726,7 @@ function App() {
           </div>
           <p className="collection-notice" role="status">{notice || 'Select a card to edit or delete it.'}</p>
           <div className="vocabulary-grid">
-            {filteredCards.map((card) => (
+            {visibleAdminCards.map((card) => (
               <article key={card.id} className={`vocabulary-card tone-${card.type} ${selectedAdminId === card.id ? 'selected' : ''}`}>
                 <button className="card-select" aria-expanded={selectedAdminId === card.id} onClick={() => setSelectedAdminId(selectedAdminId === card.id ? null : card.id)}>
                   <span className="tile-top"><span>{TYPE_LABELS[card.type]}</span><MoreHorizontal size={20} /></span>
@@ -1684,13 +1737,15 @@ function App() {
               </article>
             ))}
           </div>
+          {hasMoreAdminCards && <div ref={loadMoreRef} className="collection-load-more" role="status">Scroll down to load more cards…</div>}
           {!filteredCards.length && <div className="collection-empty"><BookOpen size={32} /><h2>No cards here yet</h2><p>Use New card to add a word to your collection.</p></div>}
         </section>
       )}
       {editorOpen && <div className="about-overlay editor-overlay" onClick={(event) => { if (event.target === event.currentTarget) setEditorOpen(false); }}>
         <section className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title">
           <header><div><p className="eyebrow">Your vocabulary</p><h2 id="editor-title">{editingId ? 'Edit card' : 'New card'}</h2></div><button className="icon-button" aria-label="Close editor" onClick={() => setEditorOpen(false)}><X size={20} /></button></header>
-        <form className="add-form" onSubmit={addCard}>
+        <form className="add-form" onSubmit={addCard} noValidate>
+          {editorFeedback && <p className={`editor-feedback ${editorFeedback.kind}`} role={editorFeedback.kind === 'error' ? 'alert' : 'status'}>{editorFeedback.message}</p>}
           <div className="add-fields">
             <div className="word-column">
               <label htmlFor="new-term">
@@ -1705,9 +1760,12 @@ function App() {
                   required
                 />
               </label>
-              <p className="detected-type">
-                Detected: <strong>{TYPE_LABELS[classifyTerm(term || 'word', splitManualExamples(example)[0] || '')] || 'Vocabulary'}</strong>
-              </p>
+              <label className="detected-type" htmlFor="new-type">
+                {editorType ? 'Category:' : 'Detected:'}
+                <select id="new-type" value={editorType || detectedEditorType} onChange={(event) => setEditorType(event.target.value)}>
+                  {Object.entries(TYPE_LABELS).map(([type, label]) => <option key={type} value={type}>{label}</option>)}
+                </select>
+              </label>
             </div>
             <label htmlFor="new-meaning">
               Meaning
