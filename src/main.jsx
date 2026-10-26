@@ -1152,22 +1152,46 @@ function App() {
   const hasMoreAdminCards = visibleLimit < filteredCards.length;
   const detectedEditorType = classifyTerm(term || 'word', splitManualExamples(example)[0] || '');
 
+  function selectAdminType(type) {
+    setSelectedType(type);
+    setAdminPage({ type, limit: ADMIN_PAGE_SIZE });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
   useEffect(() => {
     setAdminPage({ type: selectedType, limit: ADMIN_PAGE_SIZE });
+    if (viewMode === 'admin') window.scrollTo({ top: 0, behavior: 'instant' });
   }, [selectedType, viewMode, auth?.email]);
 
   useEffect(() => {
-    if (viewMode !== 'admin' || editorOpen || !hasMoreAdminCards || !loadMoreRef.current) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      observer.disconnect();
-      setAdminPage((current) => ({
-        type: selectedType,
-        limit: (current.type === selectedType ? current.limit : ADMIN_PAGE_SIZE) + ADMIN_PAGE_SIZE,
-      }));
-    }, { rootMargin: '0px 0px 200px 0px' });
-    observer.observe(loadMoreRef.current);
-    return () => observer.disconnect();
+    if (viewMode !== 'admin' || editorOpen || !hasMoreAdminCards) return;
+    let lastScrollTop = window.scrollY;
+    let frame = null;
+    let pageRequested = false;
+
+    function loadOnScroll() {
+      const scrollTop = window.scrollY;
+      const movingDown = scrollTop > lastScrollTop;
+      lastScrollTop = scrollTop;
+      if (!movingDown || frame !== null || pageRequested) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        const marker = loadMoreRef.current;
+        if (!marker || marker.getBoundingClientRect().top > window.innerHeight) return;
+        // Each downward visit to the end appends exactly one page.
+        pageRequested = true;
+        setAdminPage((current) => ({
+          type: selectedType,
+          limit: (current.type === selectedType ? current.limit : ADMIN_PAGE_SIZE) + ADMIN_PAGE_SIZE,
+        }));
+      });
+    }
+
+    window.addEventListener('scroll', loadOnScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', loadOnScroll);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
   }, [viewMode, editorOpen, selectedType, visibleLimit, hasMoreAdminCards]);
 
   const activeCard = useMemo(() => {
@@ -1721,8 +1745,8 @@ function App() {
           </header>
           <div className="collection-stats"><span><i className="dot hard" />{stats.hard} Again</span><span><i className="dot medium" />{stats.medium} Almost</span><span><i className="dot easy" />{stats.easy} Got it</span></div>
           <div className="filters" aria-label="Card filters">
-            <button className={selectedType === 'all' ? 'active' : ''} onClick={() => setSelectedType('all')}>All <small>{cards.length}</small></button>
-            {Object.entries(TYPE_LABELS).map(([type, label]) => <button key={type} className={selectedType === type ? 'active' : ''} onClick={() => setSelectedType(type)}>{label} <small>{groupedCards[type]?.length || 0}</small></button>)}
+            <button className={selectedType === 'all' ? 'active' : ''} onClick={() => selectAdminType('all')}>All <small>{cards.length}</small></button>
+            {Object.entries(TYPE_LABELS).map(([type, label]) => <button key={type} className={selectedType === type ? 'active' : ''} onClick={() => selectAdminType(type)}>{label} <small>{groupedCards[type]?.length || 0}</small></button>)}
           </div>
           <p className="collection-notice" role="status">{notice || 'Select a card to edit or delete it.'}</p>
           <div className="vocabulary-grid">
@@ -1737,7 +1761,7 @@ function App() {
               </article>
             ))}
           </div>
-          {hasMoreAdminCards && <div ref={loadMoreRef} className="collection-load-more" role="status">Scroll down to load more cards…</div>}
+          {hasMoreAdminCards && <div ref={loadMoreRef} className="collection-load-more" role="status">Showing {visibleAdminCards.length} of {filteredCards.length} cards · Scroll down to load more…</div>}
           {!filteredCards.length && <div className="collection-empty"><BookOpen size={32} /><h2>No cards here yet</h2><p>Use New card to add a word to your collection.</p></div>}
         </section>
       )}
